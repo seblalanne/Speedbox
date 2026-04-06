@@ -1,0 +1,720 @@
+{% extends "base.html" %}
+{% block title %}Historique{% endblock %}
+{% block content %}
+<h1 data-i18n="hist.title">&#128202; Historique des tests</h1>
+
+<div style="margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+    <button class="btn btn-primary" onclick="loadHistory()" data-i18n="hist.refresh">Rafraichir</button>
+    <button class="btn btn-danger" onclick="clearHistory()" data-i18n="hist.delete_all">Tout supprimer</button>
+</div>
+
+<!-- Onglets -->
+<div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('iperf3')">iPerf3</button>
+    <button class="tab-btn" onclick="switchTab('mtr')">MTR</button>
+    <button class="tab-btn" onclick="switchTab('ping')">Ping</button>
+    <button class="tab-btn" onclick="switchTab('quicktest')">QuickTest</button>
+</div>
+
+<!-- Onglet iPerf3 -->
+<div class="tab-content active" id="tab-iperf3">
+    <div class="card"><canvas id="historyChart" height="100"></canvas></div>
+    <!-- Desktop table -->
+    <div class="card hide-mobile" style="margin-top:16px; overflow-x:auto;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th data-i18n="hist.date">Date</th>
+                    <th data-i18n="hist.name">Nom</th>
+                    <th data-i18n="hist.server">Serveur</th>
+                    <th data-i18n="hist.direction">Direction</th>
+                    <th data-i18n="hist.protocol">Protocole</th>
+                    <th data-i18n="hist.sent">Envoi (Mbps)</th>
+                    <th data-i18n="hist.received">Reception (Mbps)</th>
+                    <th data-i18n="hist.retransmits">Retransmits</th>
+                    <th data-i18n="hist.jitter">Jitter (ms)</th>
+                    <th data-i18n="hist.packet_loss">Perte paquets</th>
+                    <th data-i18n="hist.loss_rate">Taux perte</th>
+                </tr>
+            </thead>
+            <tbody id="iperf3-body"></tbody>
+        </table>
+    </div>
+    <!-- Mobile cards -->
+    <div class="show-mobile" id="iperf3-cards" style="margin-top:16px;"></div>
+</div>
+
+<!-- Onglet MTR -->
+<div class="tab-content" id="tab-mtr">
+    <div class="card hide-mobile" style="overflow-x:auto;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th></th><th></th>
+                    <th data-i18n="hist.date">Date</th>
+                    <th data-i18n="hist.destination">Destination</th>
+                    <th data-i18n="hist.cycles">Cycles</th>
+                    <th data-i18n="hist.hops">Hops</th>
+                    <th data-i18n="hist.dest_loss">Perte dest.</th>
+                    <th data-i18n="hist.avg_latency">Latence moy.</th>
+                </tr>
+            </thead>
+            <tbody id="mtr-body"></tbody>
+        </table>
+    </div>
+    <div class="show-mobile" id="mtr-cards"></div>
+</div>
+
+<!-- Onglet Ping -->
+<div class="tab-content" id="tab-ping">
+    <div class="card hide-mobile" style="overflow-x:auto;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th data-i18n="hist.date">Date</th>
+                    <th data-i18n="hist.target">Cible</th>
+                    <th data-i18n="hist.packets">Paquets</th>
+                    <th data-i18n="hist.loss_pct">Perte %</th>
+                    <th>RTT min</th><th>RTT avg</th><th>RTT max</th><th>RTT mdev</th>
+                </tr>
+            </thead>
+            <tbody id="ping-body"></tbody>
+        </table>
+    </div>
+    <div class="show-mobile" id="ping-cards"></div>
+</div>
+
+<!-- Onglet QuickTest -->
+<div class="tab-content" id="tab-quicktest">
+    <div class="card hide-mobile" style="overflow-x:auto;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th></th><th></th>
+                    <th data-i18n="hist.date">Date</th>
+                    <th data-i18n="hist.name">Nom</th>
+                    <th data-i18n="hist.servers">Serveurs</th>
+                    <th data-i18n="hist.steps">Etapes</th>
+                    <th data-i18n="hist.max_bitrate">Debit max (Mbps)</th>
+                    <th data-i18n="hist.min_bitrate">Debit min (Mbps)</th>
+                    <th data-i18n="hist.max_loss">Perte max</th>
+                    <th data-i18n="hist.dest_latency">Latence dest.</th>
+                </tr>
+            </thead>
+            <tbody id="quicktest-body"></tbody>
+        </table>
+    </div>
+    <div class="show-mobile" id="quicktest-cards"></div>
+</div>
+
+<style>
+.tab-bar { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+.tab-btn { padding: 8px 20px; background: #1e2d45; color: #8899aa; border: none; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 0.95em; transition: 0.2s; }
+.tab-btn:hover { color: #ccc; }
+.tab-btn.active { background: #131a2b; color: #00d4ff; border-bottom: 2px solid #00d4ff; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.qt-step { padding: 6px 0; border-bottom: 1px solid #1e2d45; font-size: 0.9em; display: flex; justify-content: space-between; }
+.qt-step:last-child { border-bottom: none; }
+.qt-step-label { color: #99aabb; }
+.qt-step-val { color: #e0e0e0; font-weight: 500; }
+.qt-step-val.good { color: #00ff88; }
+.mtr-detail-row { display: none; }
+.mtr-detail-row.open { display: table-row; }
+.mtr-detail-table { width: 100%; font-size: 0.8em; margin: 4px 0; }
+.mtr-detail-table th { background: #0d1220; font-size: 0.85em; padding: 4px 6px; }
+.mtr-detail-table td { padding: 4px 6px; font-size: 0.85em; }
+.mtr-toggle { cursor: pointer; color: #00d4ff; font-size: 0.9em; user-select: none; }
+
+/* Responsive: mobile card layout */
+.show-mobile { display: none; }
+.hide-mobile { display: block; }
+
+.hist-card { background: #131a2b; border: 1px solid #1e2d45; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+.hist-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; cursor: pointer; }
+.hist-card-title { color: #00d4ff; font-weight: 700; font-size: 0.95em; }
+.hist-card-date { color: #667788; font-size: 0.8em; }
+.hist-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; font-size: 0.85em; }
+.hist-card-row { display: flex; justify-content: space-between; font-size: 0.85em; padding: 3px 0; border-bottom: 1px solid #1a2540; }
+.hist-card-row:last-child { border-bottom: none; }
+.hist-card-label { color: #778899; }
+.hist-card-value { color: #e0e0e0; font-weight: 600; text-align: right; }
+.hist-card-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid #1e2d45; display: none; }
+.hist-card-detail.open { display: block; }
+.hist-card-arrow { color: #00d4ff; transition: transform 0.2s; display: inline-block; }
+.hist-card-arrow.open { transform: rotate(90deg); }
+
+@media (max-width: 768px) {
+    .show-mobile { display: block; }
+    .hide-mobile { display: none !important; }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let histChart = null;
+
+function formatDate(ts) {
+    if (!ts) return '-';
+    return new Date(ts).toLocaleString(getLocale());
+}
+function val(v) { return (v !== undefined && v !== null) ? v : '-'; }
+function escapeHtml(s) { var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+var _historyData = [];
+
+function downloadResult(index) {
+    var item = _historyData[index];
+    if (!item) return;
+    var json = JSON.stringify(item, null, 2);
+    var blob = new Blob([json], {type: 'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var name = (item.test_type || item.quicktest ? 'quicktest' : 'iperf3');
+    var date = (item.timestamp || '').replace(/[: ]/g, '-').substring(0, 19);
+    a.href = url;
+    a.download = 'speedbox_' + name + '_' + date + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function downloadQtGroup(indices) {
+    var items = indices.map(function(i){ return _historyData[i]; }).filter(Boolean);
+    if (items.length === 0) return;
+    var json = JSON.stringify(items, null, 2);
+    var blob = new Blob([json], {type: 'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var date = (items[0].timestamp || '').replace(/[: ]/g, '-').substring(0, 19);
+    a.href = url;
+    a.download = 'speedbox_quicktest_' + date + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function dlBtnHtml(idx) {
+    return '<button onclick="downloadResult(' + idx + ')" title="' + t('hist.download_json') + '" '
+        + 'style="background:none;border:1px solid #1e3a5f;border-radius:6px;color:#00d4ff;cursor:pointer;padding:4px 6px;font-size:0.85em;min-width:32px;min-height:32px;-webkit-tap-highlight-color:transparent;">'
+        + '&#11015;</button>';
+}
+
+function dlBtnCardHtml(idx) {
+    return '<button onclick="event.stopPropagation();downloadResult(' + idx + ')" title="' + t('hist.download_json') + '" '
+        + 'style="background:none;border:1px solid #1e3a5f;border-radius:6px;color:#00d4ff;cursor:pointer;padding:4px 8px;font-size:0.85em;min-width:36px;min-height:36px;flex-shrink:0;-webkit-tap-highlight-color:transparent;">'
+        + '&#11015;</button>';
+}
+
+function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+    document.getElementById('tab-' + name).classList.add('active');
+    // Activate the correct button
+    document.querySelectorAll('.tab-btn').forEach(function(b) {
+        if (b.textContent.toLowerCase().replace(/\s/g,'') === name.replace(/\s/g,'') ||
+            (name === 'iperf3' && b.textContent === 'iPerf3') ||
+            (name === 'quicktest' && b.textContent === 'QuickTest')) {
+            b.classList.add('active');
+        }
+    });
+}
+
+function loadHistory() {
+    fetch('/api/history').then(function(r){return r.json();}).then(function(data) {
+        _historyData = data;
+        var iperf3Items = [];
+        var mtrItems = [];
+        var pingItems = [];
+        var qtItems = [];
+
+        data.forEach(function(item, idx) {
+            item._idx = idx;
+            if (item.quicktest) {
+                qtItems.push(item);
+            } else if (item.test_type === 'mtr') {
+                mtrItems.push(item);
+            } else if (item.test_type === 'ping') {
+                pingItems.push(item);
+            } else {
+                iperf3Items.push(item);
+            }
+        });
+
+        renderIperf3(iperf3Items);
+        renderMtr(mtrItems);
+        renderPing(pingItems);
+        renderQuicktest(qtItems);
+    });
+}
+
+function renderIperf3(items) {
+    var tbody = document.getElementById('iperf3-body');
+    tbody.innerHTML = '';
+    var cards = document.getElementById('iperf3-cards');
+    cards.innerHTML = '';
+    var labels = [], sent = [], recv = [];
+
+    items.forEach(function(item) {
+        var dateStr = formatDate(item.timestamp);
+        var proto = val(item.protocol);
+        var isUdp = (proto === 'udp');
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>'+dlBtnHtml(item._idx)+'</td>'
+            +'<td>'+dateStr+'</td>'
+            +'<td>'+(item.test_name||'-')+'</td>'
+            +'<td>'+(item.server||'-')+'</td>'
+            +'<td>'+(item.direction||'-')+'</td>'
+            +'<td>'+proto+'</td>'
+            +'<td>'+val(item.sent_mbps)+'</td>'
+            +'<td>'+val(item.received_mbps)+'</td>'
+            +'<td>'+val(item.retransmits)+'</td>'
+            +'<td>'+(isUdp?val(item.jitter_ms):'-')+'</td>'
+            +'<td>'+(isUdp?(val(item.lost_packets)+'/'+val(item.total_packets)):'-')+'</td>'
+            +'<td>'+(isUdp?(val(item.lost_percent)+'%'):'-')+'</td>';
+        tbody.appendChild(tr);
+        labels.push(dateStr);
+        sent.push(parseFloat(item.sent_mbps)||0);
+        recv.push(parseFloat(item.received_mbps)||0);
+
+        // Mobile card
+        var dir = item.direction === 'download' ? '⬇' : '⬆';
+        var ch = '<div class="hist-card">';
+        ch += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">';
+        ch += '<span class="hist-card-title" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">' + dir + ' ' + proto.toUpperCase() + ' — ' + escapeHtml(item.server||'-') + '</span>';
+        ch += dlBtnCardHtml(item._idx);
+        ch += '<span class="hist-card-date">' + dateStr + '</span></div>';
+        if (item.test_name) ch += '<div style="color:#94a3b8;font-size:0.8em;margin-bottom:6px;">' + escapeHtml(item.test_name) + '</div>';
+        ch += '<div class="hist-card-grid">';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.sent_short') + '</span><span class="hist-card-value" style="color:#10b981;">' + val(item.sent_mbps) + ' Mbps</span></div>';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.received_short') + '</span><span class="hist-card-value" style="color:#10b981;">' + val(item.received_mbps) + ' Mbps</span></div>';
+        if (!isUdp) {
+            ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.retransmissions') + '</span><span class="hist-card-value">' + val(item.retransmits) + '</span></div>';
+        }
+        if (isUdp) {
+            ch += '<div class="hist-card-row"><span class="hist-card-label">Jitter</span><span class="hist-card-value">' + val(item.jitter_ms) + ' ms</span></div>';
+            ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.loss') + '</span><span class="hist-card-value">' + val(item.lost_percent) + '% (' + val(item.lost_packets) + '/' + val(item.total_packets) + ')</span></div>';
+        }
+        ch += '</div></div>';
+        cards.innerHTML += ch;
+    });
+
+    if (histChart) histChart.destroy();
+    if (items.length > 0) {
+        histChart = new Chart(document.getElementById('historyChart'), {
+            type:'line',
+            data:{labels:labels, datasets:[
+                {label:t('hist.chart_sent'),data:sent,borderColor:'#00d4ff',tension:0.3,fill:false},
+                {label:t('hist.chart_recv'),data:recv,borderColor:'#00ff88',tension:0.3,fill:false}
+            ]},
+            options:{responsive:true,scales:{
+                x:{ticks:{color:'#778899',maxRotation:45}},
+                y:{ticks:{color:'#778899'},beginAtZero:true}
+            },plugins:{legend:{labels:{color:'#ccc'}}}}
+        });
+    }
+}
+
+function renderMtr(items) {
+    var tbody = document.getElementById('mtr-body');
+    tbody.innerHTML = '';
+    var cards = document.getElementById('mtr-cards');
+    cards.innerHTML = '';
+    items.forEach(function(item, idx) {
+        var hubs = item.hubs || [];
+        var lastHub = hubs.length > 0 ? hubs[hubs.length-1] : {};
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>'+dlBtnHtml(item._idx)+'</td>'
+            +'<td class="mtr-toggle" onclick="toggleMtrDetail('+idx+')">&#9654;</td>'
+            +'<td>'+formatDate(item.timestamp)+'</td>'
+            +'<td>'+escapeHtml(item.dst||'-')+'</td>'
+            +'<td>'+val(item.cycles)+'</td>'
+            +'<td>'+hubs.length+'</td>'
+            +'<td>'+(lastHub.loss !== undefined ? lastHub.loss.toFixed(1)+'%' : '-')+'</td>'
+            +'<td>'+(lastHub.avg !== undefined ? lastHub.avg.toFixed(1)+' ms' : '-')+'</td>';
+        tbody.appendChild(tr);
+
+        // Detail row
+        var detailTr = document.createElement('tr');
+        detailTr.className = 'mtr-detail-row';
+        detailTr.id = 'mtr-detail-'+idx;
+        var detailTd = document.createElement('td');
+        detailTd.colSpan = 8;
+        var html = '<table class="mtr-detail-table"><thead><tr>'
+            +'<th>Hop</th><th>Host</th><th>IP</th><th>ASN</th><th>Loss%</th>'
+            +'<th>Avg</th><th>Best</th><th>Wrst</th><th>StDev</th></tr></thead><tbody>';
+        hubs.forEach(function(h) {
+            var lossColor = h.loss > 20 ? '#ff4466' : h.loss > 5 ? '#ff9933' : h.loss > 0 ? '#ffdd57' : '';
+            var lossStyle = lossColor ? ' style="color:'+lossColor+';font-weight:bold;"' : '';
+            html += '<tr><td>'+h.hop+'</td><td>'+escapeHtml(h.hostname)+'</td>'
+                +'<td>'+escapeHtml(h.ip)+'</td><td style="color:#00d4ff;">'+escapeHtml(h.asn||'-')+'</td>'
+                +'<td'+lossStyle+'>'+h.loss.toFixed(1)+'%</td>'
+                +'<td>'+(h.spike?'<strong style="color:#ff9933;">':'')+h.avg.toFixed(1)+(h.spike?' &#9650;</strong>':'')+'</td>'
+                +'<td>'+h.best.toFixed(1)+'</td><td>'+h.wrst.toFixed(1)+'</td><td>'+h.stdev.toFixed(1)+'</td></tr>';
+        });
+        html += '</tbody></table>';
+        detailTd.innerHTML = html;
+        detailTr.appendChild(detailTd);
+        tbody.appendChild(detailTr);
+
+        // Mobile card
+        var lc = lastHub.loss > 5 ? '#ef4444' : (lastHub.loss > 0 ? '#f59e0b' : '#10b981');
+        var cardId = 'mtr-card-detail-' + idx;
+        var ch = '<div class="hist-card">';
+        ch += '<div class="hist-card-header" onclick="toggleCardDetail(\'' + cardId + '\', this)" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">';
+        ch += '<div style="flex:1;min-width:0;"><span class="hist-card-title">🔀 ' + escapeHtml(item.dst||'-') + '</span>';
+        ch += '<div class="hist-card-date">' + formatDate(item.timestamp) + '</div></div>';
+        ch += dlBtnCardHtml(item._idx);
+        ch += '<span class="hist-card-arrow">&#9654;</span></div>';
+        ch += '<div class="hist-card-grid">';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">Hops</span><span class="hist-card-value">' + hubs.length + '</span></div>';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">Cycles</span><span class="hist-card-value">' + val(item.cycles) + '</span></div>';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.latency') + '</span><span class="hist-card-value">' + (lastHub.avg !== undefined ? lastHub.avg.toFixed(1) + ' ms' : '-') + '</span></div>';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.loss') + '</span><span class="hist-card-value" style="color:' + lc + ';">' + (lastHub.loss !== undefined ? lastHub.loss.toFixed(1) + '%' : '-') + '</span></div>';
+        ch += '</div>';
+        // Expandable hop detail
+        ch += '<div class="hist-card-detail" id="' + cardId + '">';
+        hubs.forEach(function(h) {
+            var hlc = h.loss > 5 ? '#ef4444' : (h.loss > 0 ? '#f59e0b' : '#e0e0e0');
+            ch += '<div style="padding:4px 0;border-bottom:1px solid #1a2540;font-size:0.8em;display:flex;justify-content:space-between;flex-wrap:wrap;gap:2px;">';
+            ch += '<span style="color:#00d4ff;min-width:30px;">#' + h.hop + '</span>';
+            ch += '<span style="flex:1;min-width:100px;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(h.hostname || h.ip) + '</span>';
+            ch += '<span style="color:#64748b;min-width:50px;">' + escapeHtml(h.asn || '') + '</span>';
+            ch += '<span style="color:' + hlc + ';min-width:40px;">' + h.loss.toFixed(1) + '%</span>';
+            ch += '<span style="min-width:55px;">' + h.avg.toFixed(1) + 'ms' + (h.spike ? ' ▲' : '') + '</span>';
+            ch += '</div>';
+        });
+        ch += '</div></div>';
+        cards.innerHTML += ch;
+    });
+    if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#778899;">' + t('hist.no_mtr') + '</td></tr>';
+        cards.innerHTML = '<div class="hist-card" style="text-align:center;color:#778899;">' + t('hist.no_mtr') + '</div>';
+    }
+}
+
+function toggleMtrDetail(idx) {
+    var row = document.getElementById('mtr-detail-'+idx);
+    row.classList.toggle('open');
+    // Toggle arrow
+    var arrow = row.previousElementSibling.querySelector('.mtr-toggle');
+    arrow.innerHTML = row.classList.contains('open') ? '&#9660;' : '&#9654;';
+}
+
+function renderPing(items) {
+    var tbody = document.getElementById('ping-body');
+    tbody.innerHTML = '';
+    var cards = document.getElementById('ping-cards');
+    cards.innerHTML = '';
+    items.forEach(function(item) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>'+dlBtnHtml(item._idx)+'</td>'
+            +'<td>'+formatDate(item.timestamp)+'</td>'
+            +'<td>'+escapeHtml(item.target||'-')+'</td>'
+            +'<td>'+(item.packets_sent||'-')+' / '+(item.packets_received||'-')+'</td>'
+            +'<td>'+(item.loss_percent !== undefined ? item.loss_percent+'%' : '-')+'</td>'
+            +'<td>'+val(item.rtt_min)+'</td>'
+            +'<td>'+val(item.rtt_avg)+'</td>'
+            +'<td>'+val(item.rtt_max)+'</td>'
+            +'<td>'+val(item.rtt_mdev)+'</td>';
+        tbody.appendChild(tr);
+
+        // Mobile card
+        var plc = (item.loss_percent||0) > 5 ? '#ef4444' : ((item.loss_percent||0) > 0 ? '#f59e0b' : '#10b981');
+        var ch = '<div class="hist-card">';
+        ch += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">';
+        ch += '<span class="hist-card-title" style="flex:1;min-width:0;">🏓 ' + escapeHtml(item.target||'-') + '</span>';
+        ch += dlBtnCardHtml(item._idx);
+        ch += '<span class="hist-card-date">' + formatDate(item.timestamp) + '</span></div>';
+        ch += '<div class="hist-card-grid">';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.packets') + '</span><span class="hist-card-value">' + (item.packets_sent||'-') + ' / ' + (item.packets_received||'-') + '</span></div>';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.loss') + '</span><span class="hist-card-value" style="color:' + plc + ';">' + (item.loss_percent !== undefined ? item.loss_percent + '%' : '-') + '</span></div>';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">RTT min</span><span class="hist-card-value">' + val(item.rtt_min) + ' ms</span></div>';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">RTT avg</span><span class="hist-card-value" style="color:#10b981;">' + val(item.rtt_avg) + ' ms</span></div>';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">RTT max</span><span class="hist-card-value">' + val(item.rtt_max) + ' ms</span></div>';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">RTT mdev</span><span class="hist-card-value">' + val(item.rtt_mdev) + ' ms</span></div>';
+        ch += '</div></div>';
+        cards.innerHTML += ch;
+    });
+    if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#778899;">' + t('hist.no_ping') + '</td></tr>';
+        cards.innerHTML = '<div class="hist-card" style="text-align:center;color:#778899;">' + t('hist.no_ping') + '</div>';
+    }
+}
+
+function renderQuicktest(items) {
+    var tbody = document.getElementById('quicktest-body');
+    tbody.innerHTML = '';
+    var cards = document.getElementById('quicktest-cards');
+    cards.innerHTML = '';
+
+    // Group by quicktest_id, fallback to test_name + date minute
+    var groups = {};
+    var groupOrder = [];
+    items.forEach(function(item) {
+        var key = item.quicktest_id || (item.test_name||'qt') + '_' + (item.timestamp||'').substring(0,10);
+        if (!groups[key]) {
+            groups[key] = {items:[], name: item.test_name||'QuickTest', date: item.timestamp, servers:{}};
+            groupOrder.push(key);
+        }
+        groups[key].items.push(item);
+        if (item.server_name) groups[key].servers[item.server_name] = true;
+        if (!groups[key].date || item.timestamp < groups[key].date) groups[key].date = item.timestamp;
+    });
+
+    groupOrder.sort().reverse();
+
+    if (groupOrder.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#778899;">' + t('hist.no_quicktest') + '</td></tr>';
+        cards.innerHTML = '<div class="hist-card" style="text-align:center;color:#778899;">' + t('hist.no_quicktest') + '</div>';
+        return;
+    }
+
+    groupOrder.forEach(function(key, gIdx) {
+        var g = groups[key];
+        var srvList = Object.keys(g.servers).join(', ') || '-';
+
+        // Compute summary metrics from iperf3 steps
+        var maxMbps = 0, minMbps = Infinity, maxLoss = 0, latency = '-';
+        var iperfCount = 0;
+        g.items.forEach(function(item) {
+            if (item.type === 'mtr' || item.test_type === 'mtr') {
+                var avg = item.last_hop_avg || (item.hubs && item.hubs.length > 0 ? item.hubs[item.hubs.length-1].avg : 0);
+                if (avg) latency = avg.toFixed(1) + ' ms';
+            } else {
+                var mbps = Math.max(parseFloat(item.sent_mbps)||0, parseFloat(item.received_mbps)||0);
+                if (mbps > 0) {
+                    iperfCount++;
+                    if (mbps > maxMbps) maxMbps = mbps;
+                    if (mbps < minMbps) minMbps = mbps;
+                }
+                var loss = parseFloat(item.lost_percent) || 0;
+                if (loss > maxLoss) maxLoss = loss;
+            }
+        });
+        if (iperfCount === 0) minMbps = 0;
+        var lossHtml = maxLoss > 0 ? '<span style="color:#ff4466;">'+maxLoss.toFixed(1)+'%</span>' : '0%';
+
+        // Summary row
+        var tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        tr.onclick = function(){ toggleQtDetail(gIdx); };
+        var gIdxList = g.items.map(function(it){return it._idx;}).join(',');
+        tr.innerHTML = '<td onclick="event.stopPropagation();downloadQtGroup(['+gIdxList+'])">'
+            +'<button title="' + t('hist.download_json') + '" style="background:none;border:1px solid #1e3a5f;border-radius:6px;color:#00d4ff;cursor:pointer;padding:4px 6px;font-size:0.85em;min-width:32px;min-height:32px;">&#11015;</button></td>'
+            +'<td class="mtr-toggle" id="qt-arrow-'+gIdx+'">&#9654;</td>'
+            +'<td>'+formatDate(g.date)+'</td>'
+            +'<td style="color:#00d4ff;font-weight:600;">'+escapeHtml(g.name)+'</td>'
+            +'<td>'+escapeHtml(srvList)+'</td>'
+            +'<td>'+g.items.length+'</td>'
+            +'<td style="color:#00ff88;font-weight:600;">'+maxMbps.toFixed(1)+'</td>'
+            +'<td>'+(minMbps < Infinity ? minMbps.toFixed(1) : '-')+'</td>'
+            +'<td>'+lossHtml+'</td>'
+            +'<td>'+latency+'</td>';
+        tbody.appendChild(tr);
+
+        // Detail row (hidden) — grouped by server
+        var detailTr = document.createElement('tr');
+        detailTr.className = 'mtr-detail-row';
+        detailTr.id = 'qt-detail-'+gIdx;
+        var detailTd = document.createElement('td');
+        detailTd.colSpan = 10;
+
+        // Group steps by server
+        var srvGroups = {};
+        var srvOrder = [];
+        g.items.forEach(function(item) {
+            var sn = item.server_name || item.server || t('hist.unknown');
+            if (!srvGroups[sn]) { srvGroups[sn] = { mtr: null, iperf: [] }; srvOrder.push(sn); }
+            if (item.type === 'mtr' || item.test_type === 'mtr') {
+                srvGroups[sn].mtr = item;
+            } else {
+                srvGroups[sn].iperf.push(item);
+            }
+        });
+
+        var html = '<div style="padding:8px 0;">';
+        srvOrder.forEach(function(sn) {
+            var sd = srvGroups[sn];
+            html += '<div style="margin-bottom:12px;border:1px solid #334155;border-radius:8px;overflow:hidden;">';
+            html += '<div style="background:#334155;padding:8px 12px;font-weight:700;font-size:14px;">🖥 ' + escapeHtml(sn) + '</div>';
+
+            // MTR detail
+            if (sd.mtr) {
+                var m = sd.mtr;
+                var hops = m.hops || (m.hubs ? m.hubs.length : '?');
+                var destLoss = m.last_hop_loss != null ? m.last_hop_loss : (m.hubs && m.hubs.length > 0 ? m.hubs[m.hubs.length-1].loss : 0);
+                var destAvg = m.last_hop_avg != null ? m.last_hop_avg : (m.hubs && m.hubs.length > 0 ? m.hubs[m.hubs.length-1].avg : 0);
+                var lc = destLoss > 5 ? '#ef4444' : (destLoss > 0 ? '#f59e0b' : '#10b981');
+                html += '<div style="padding:8px 12px;border-bottom:1px solid #1e293b;background:#0f172a;">';
+                html += '<div style="font-weight:600;color:#8b5cf6;margin-bottom:4px;">🔀 MTR — ' + hops + ' hops, ' + (m.cycles || 60) + ' cycles</div>';
+                html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:12px;">';
+                html += '<span>' + t('hist.destination_label') + ': <strong>' + escapeHtml(m.dst || m.server || '-') + '</strong></span>';
+                html += '<span>' + t('hist.latency') + ': <strong>' + destAvg.toFixed(1) + ' ms</strong></span>';
+                html += '<span>' + t('hist.loss') + ': <strong style="color:' + lc + ';">' + destLoss.toFixed(1) + '%</strong></span>';
+                html += '</div>';
+
+                // Problematic hops
+                if (m.hubs && m.hubs.length > 0) {
+                    var probs = m.hubs.filter(function(h) { return h.loss > 0 || h.spike; });
+                    if (probs.length > 0) {
+                        html += '<div style="margin-top:6px;font-size:11px;color:#f59e0b;">⚠ ' + t('hist.problematic_nodes') + ': ';
+                        probs.slice(0, 4).forEach(function(h) {
+                            html += '<span style="margin-right:8px;background:#1e293b;padding:2px 6px;border-radius:4px;">Hop ' + h.hop;
+                            html += ' (' + escapeHtml(h.host || h.ip || '???') + ')';
+                            if (h.loss > 0) html += ' ' + t('hist.loss').toLowerCase() + ':' + h.loss.toFixed(1) + '%';
+                            if (h.spike) html += ' lat:' + h.avg.toFixed(1) + 'ms';
+                            html += '</span>';
+                        });
+                        html += '</div>';
+                    }
+                }
+                html += '</div>';
+            }
+
+            // iPerf3 details
+            sd.iperf.forEach(function(r) {
+                var icon = r.protocol === 'udp' ? '📡' : '🌐';
+                html += '<div style="padding:8px 12px;border-bottom:1px solid #1e293b;background:#0f172a;">';
+                html += '<div style="font-weight:600;color:#3b82f6;margin-bottom:4px;">' + icon + ' ' + escapeHtml(r.label || r.protocol.toUpperCase()) + '</div>';
+                html += '<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px;font-size:12px;">';
+
+                html += '<span>' + t('hist.sent_short') + ': <strong style="color:#10b981;">' + val(r.sent_mbps) + ' Mbps</strong></span>';
+                html += '<span>' + t('hist.received_short') + ': <strong style="color:#10b981;">' + val(r.received_mbps) + ' Mbps</strong></span>';
+
+                if (r.protocol === 'udp') {
+                    var jc = r.jitter_ms > 5 ? '#ef4444' : (r.jitter_ms > 1 ? '#f59e0b' : '#10b981');
+                    var plc = r.lost_percent > 1 ? '#ef4444' : (r.lost_percent > 0 ? '#f59e0b' : '#10b981');
+                    html += '<span>Jitter: <strong style="color:' + jc + ';">' + (r.jitter_ms != null ? r.jitter_ms : '-') + ' ms</strong></span>';
+                    html += '<span>' + t('hist.loss') + ': <strong style="color:' + plc + ';">' + val(r.lost_percent) + '%</strong>';
+                    if (r.lost_packets != null && r.total_packets != null) {
+                        html += ' <span style="color:#64748b;">(' + r.lost_packets + '/' + r.total_packets + ' paq.)</span>';
+                    }
+                    html += '</span>';
+                } else {
+                    var rc = (r.retransmits||0) > 100 ? '#ef4444' : ((r.retransmits||0) > 10 ? '#f59e0b' : '#10b981');
+                    html += '<span>' + t('hist.retransmissions') + ': <strong style="color:' + rc + ';">' + (r.retransmits != null ? r.retransmits : '-') + '</strong></span>';
+                    html += '<span>Streams: <strong>' + (r.streams || 1) + '</strong></span>';
+                }
+
+                // Volumes
+                var sentMB = r.sent_bytes ? (r.sent_bytes / (1024*1024)).toFixed(1) : '-';
+                var recvMB = r.received_bytes ? (r.received_bytes / (1024*1024)).toFixed(1) : '-';
+                html += '<span>' + t('hist.sent_volume') + ': ' + sentMB + ' Mo</span>';
+                html += '</div></div>';
+            });
+
+            html += '</div>';
+        });
+        html += '</div>';
+        detailTd.innerHTML = html;
+        detailTr.appendChild(detailTd);
+        tbody.appendChild(detailTr);
+
+        // Mobile card
+        var cardDetailId = 'qt-card-detail-' + gIdx;
+        var lc2 = maxLoss > 0 ? '#ef4444' : '#10b981';
+        var ch = '<div class="hist-card">';
+        ch += '<div class="hist-card-header" onclick="toggleCardDetail(\'' + cardDetailId + '\', this)" style="display:flex;align-items:center;gap:8px;">';
+        ch += '<div style="flex:1;min-width:0;"><span class="hist-card-title">⚡ ' + escapeHtml(g.name) + '</span>';
+        ch += '<div class="hist-card-date">' + formatDate(g.date) + ' — ' + escapeHtml(srvList) + '</div></div>';
+        ch += '<button onclick="event.stopPropagation();downloadQtGroup(['+gIdxList+'])" style="background:none;border:1px solid #1e3a5f;border-radius:6px;color:#00d4ff;cursor:pointer;padding:4px 8px;font-size:0.85em;min-width:36px;min-height:36px;flex-shrink:0;">&#11015;</button>';
+        ch += '<span class="hist-card-arrow">&#9654;</span></div>';
+        ch += '<div class="hist-card-grid">';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.max_bitrate') + '</span><span class="hist-card-value" style="color:#10b981;">' + maxMbps.toFixed(1) + ' Mbps</span></div>';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.min_bitrate') + '</span><span class="hist-card-value">' + (minMbps < Infinity ? minMbps.toFixed(1) : '-') + ' Mbps</span></div>';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.max_loss') + '</span><span class="hist-card-value" style="color:' + lc2 + ';">' + maxLoss.toFixed(1) + '%</span></div>';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.dest_latency') + '</span><span class="hist-card-value">' + latency + '</span></div>';
+        ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.steps') + '</span><span class="hist-card-value">' + g.items.length + '</span></div>';
+        ch += '</div>';
+
+        // Expandable detail per server
+        ch += '<div class="hist-card-detail" id="' + cardDetailId + '">';
+        srvOrder.forEach(function(sn) {
+            var sd = srvGroups[sn];
+            ch += '<div style="margin-top:8px;border:1px solid #334155;border-radius:8px;overflow:hidden;">';
+            ch += '<div style="background:#334155;padding:6px 10px;font-weight:600;font-size:0.85em;">🖥 ' + escapeHtml(sn) + '</div>';
+
+            if (sd.mtr) {
+                var m = sd.mtr;
+                var mhops = m.hops || (m.hubs ? m.hubs.length : '?');
+                var mLoss = m.last_hop_loss != null ? m.last_hop_loss : (m.hubs && m.hubs.length > 0 ? m.hubs[m.hubs.length-1].loss : 0);
+                var mAvg = m.last_hop_avg != null ? m.last_hop_avg : (m.hubs && m.hubs.length > 0 ? m.hubs[m.hubs.length-1].avg : 0);
+                var mlc = mLoss > 5 ? '#ef4444' : (mLoss > 0 ? '#f59e0b' : '#10b981');
+                ch += '<div style="padding:6px 10px;background:#0f172a;border-bottom:1px solid #1e293b;font-size:0.8em;">';
+                ch += '<div style="color:#8b5cf6;font-weight:600;margin-bottom:4px;">🔀 MTR — ' + mhops + ' hops</div>';
+                ch += '<div class="hist-card-grid">';
+                ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.latency') + '</span><span class="hist-card-value">' + mAvg.toFixed(1) + ' ms</span></div>';
+                ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.loss') + '</span><span class="hist-card-value" style="color:' + mlc + ';">' + mLoss.toFixed(1) + '%</span></div>';
+                ch += '</div>';
+                if (m.hubs) {
+                    var mprobs = m.hubs.filter(function(h) { return h.loss > 0 || h.spike; });
+                    if (mprobs.length > 0) {
+                        ch += '<div style="margin-top:4px;font-size:0.75em;color:#f59e0b;">';
+                        mprobs.slice(0, 3).forEach(function(h) {
+                            ch += '⚠ Hop ' + h.hop + ' (' + escapeHtml(h.host || h.ip || '?') + ')';
+                            if (h.loss > 0) ch += ' ' + h.loss.toFixed(1) + '%';
+                            if (h.spike) ch += ' ' + h.avg.toFixed(1) + 'ms';
+                            ch += '<br>';
+                        });
+                        ch += '</div>';
+                    }
+                }
+                ch += '</div>';
+            }
+
+            sd.iperf.forEach(function(r) {
+                var ic = r.protocol === 'udp' ? '📡' : '🌐';
+                ch += '<div style="padding:6px 10px;background:#0f172a;border-bottom:1px solid #1e293b;font-size:0.8em;">';
+                ch += '<div style="color:#3b82f6;font-weight:600;margin-bottom:4px;">' + ic + ' ' + escapeHtml(r.label || r.protocol.toUpperCase()) + '</div>';
+                ch += '<div class="hist-card-grid">';
+                ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.sent_short') + '</span><span class="hist-card-value" style="color:#10b981;">' + val(r.sent_mbps) + ' Mbps</span></div>';
+                ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.received_short') + '</span><span class="hist-card-value" style="color:#10b981;">' + val(r.received_mbps) + ' Mbps</span></div>';
+                if (r.protocol === 'udp') {
+                    ch += '<div class="hist-card-row"><span class="hist-card-label">Jitter</span><span class="hist-card-value">' + (r.jitter_ms != null ? r.jitter_ms + ' ms' : '-') + '</span></div>';
+                    ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.loss') + '</span><span class="hist-card-value">' + val(r.lost_percent) + '%</span></div>';
+                } else {
+                    ch += '<div class="hist-card-row"><span class="hist-card-label">' + t('hist.retransmissions') + '</span><span class="hist-card-value">' + (r.retransmits != null ? r.retransmits : '-') + '</span></div>';
+                    ch += '<div class="hist-card-row"><span class="hist-card-label">Streams</span><span class="hist-card-value">' + (r.streams || 1) + '</span></div>';
+                }
+                ch += '</div></div>';
+            });
+
+            ch += '</div>';
+        });
+        ch += '</div></div>';
+        cards.innerHTML += ch;
+    });
+}
+
+function toggleQtDetail(idx) {
+    var row = document.getElementById('qt-detail-'+idx);
+    row.classList.toggle('open');
+    var arrow = document.getElementById('qt-arrow-'+idx);
+    arrow.innerHTML = row.classList.contains('open') ? '&#9660;' : '&#9654;';
+}
+
+function toggleCardDetail(id, headerEl) {
+    var detail = document.getElementById(id);
+    detail.classList.toggle('open');
+    var arrow = headerEl.querySelector('.hist-card-arrow');
+    if (arrow) arrow.classList.toggle('open');
+}
+
+function clearHistory() {
+    if (confirm(t('hist.confirm_delete'))) {
+        fetch('/api/history/clear', {method:'POST'}).then(function(r){return r.json();}).then(function(d) {
+            var msg = d.message_key ? t(d.message_key) : d.message;
+            if(d.success) loadHistory();
+        });
+    }
+}
+
+loadHistory();
+
+// Ouvrir l'onglet demande via URL (?tab=quicktest)
+var urlTab = new URLSearchParams(location.search).get('tab');
+if (urlTab) switchTab(urlTab);
+</script>
+{% endblock %}

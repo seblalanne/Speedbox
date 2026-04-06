@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<h1><img src="/static/favicon.png" alt="" class="brand-logo" style="height:1.3em;"> SpeedBOX</h1>
+
+<!-- Hero: QuickTest rapide -->
+<div class="hero-card">
+    <h2>&#128640; <span data-i18n="index.hero_title">Lancer un test rapide</span></h2>
+    <p data-i18n="index.hero_desc">Teste automatiquement le debit, la latence et les pertes vers tous vos serveurs favoris</p>
+    <a href="/speedtest?quicktest=1" class="btn-hero">&#9889; <span data-i18n="index.quicktest">QuickTest</span></a>
+</div>
+
+<!-- Cartes statut -->
+<div class="grid">
+    <div class="card" id="card-eth0">
+        <h3>&#128268; <span data-i18n="index.eth_port">Port Ethernet</span></h3>
+        <p><span data-i18n="index.status">Statut</span>: <span id="eth0-status">...</span></p>
+        <p>IP: <span id="eth0-ip">...</span></p>
+        <p><span data-i18n="index.speed">Vitesse</span>: <span id="eth0-speed">...</span></p>
+    </div>
+    <div class="card" id="card-wlan0">
+        <h3>&#128225; <span data-i18n="index.wifi_ap">AP Wifi</span></h3>
+        <p><span data-i18n="index.status">Statut</span>: <span id="wlan0-status">...</span></p>
+        <p>IP: <span id="wlan0-ip">...</span></p>
+    </div>
+    <div class="card" id="card-system">
+        <h3>&#128421; <span data-i18n="index.system">Systeme</span></h3>
+        <p>Hostname: <span id="hostname">...</span></p>
+        <p>Uptime: <span id="uptime">...</span></p>
+    </div>
+</div>
+
+<!-- Acces rapide -->
+<h2 data-i18n="index.tools">Outils</h2>
+<div class="grid">
+    <a href="/speedtest" class="card card-link">
+        <h3>&#128640; <span data-i18n="index.speedtest">SpeedTest</span></h3>
+        <p data-i18n="index.speedtest_desc">Test de debit iperf3 personnalise</p>
+    </a>
+    <a href="/diagnostic" class="card card-link">
+        <h3>&#128269; <span data-i18n="index.diagnostic">Diagnostic</span></h3>
+        <p data-i18n="index.diagnostic_desc">Ping, MTR, DNS lookup</p>
+    </a>
+    <a href="/network" class="card card-link">
+        <h3>&#128274; <span data-i18n="index.network">Reseau</span></h3>
+        <p data-i18n="index.network_desc">Configuration IP / VLAN / FTP</p>
+    </a>
+    <a href="/history" class="card card-link">
+        <h3>&#128202; <span data-i18n="index.history">Historique</span></h3>
+        <p data-i18n="index.history_desc">Resultats precedents</p>
+    </a>
+</div>
+
+<!-- Maintenance -->
+<h2 data-i18n="index.maintenance">Maintenance</h2>
+<div class="grid">
+    <div class="card">
+        <h3>&#128260; <span data-i18n="index.restart_service">Redemarrer le service</span></h3>
+        <p style="margin-bottom:12px;" data-i18n="index.restart_service_desc">Relance l'application SpeedBox sans redemarrer le systeme</p>
+        <button class="btn btn-secondary" onclick="doReboot('service')">&#128260; <span data-i18n="index.restart_service">Redemarrer le service</span></button>
+    </div>
+    <div class="card">
+        <h3>&#128268; <span data-i18n="index.restart_system">Redemarrer le systeme</span></h3>
+        <p style="margin-bottom:12px;" data-i18n="index.restart_system_desc">Redemarrage complet du Raspberry Pi</p>
+        <button class="btn btn-danger" onclick="doReboot('system')">&#9888; <span data-i18n="index.restart_system">Redemarrer le systeme</span></button>
+    </div>
+</div>
+
+<!-- Reboot overlay -->
+<div id="reboot-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:2000;justify-content:center;align-items:center;">
+    <div style="text-align:center;color:#fff;">
+        <div style="font-size:48px;margin-bottom:20px;">&#128260;</div>
+        <h2 id="reboot-title" style="color:#00d4ff;margin-bottom:10px;" data-i18n="index.restarting">Redemarrage en cours...</h2>
+        <div id="reboot-timer" style="font-size:64px;font-weight:700;color:#00d4ff;margin:20px 0;">--</div>
+        <p id="reboot-msg" style="color:#8899aa;" data-i18n="index.auto_reload">La page se rechargera automatiquement</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function refreshStatus() {
+        fetch('/api/status')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('eth0-status').textContent = data.eth0.status;
+                document.getElementById('eth0-ip').textContent = data.eth0.ip;
+                document.getElementById('eth0-speed').textContent = data.eth0.speed;
+                document.getElementById('wlan0-status').textContent = data.wlan0.status;
+                document.getElementById('wlan0-ip').textContent = data.wlan0.ip;
+                document.getElementById('hostname').textContent = data.hostname;
+                document.getElementById('uptime').textContent = data.uptime;
+                document.getElementById('card-eth0').className =
+                    'card ' + (data.eth0.status === 'UP' ? 'card-ok' : 'card-ko');
+                document.getElementById('card-wlan0').className =
+                    'card ' + (data.wlan0.status === 'UP' ? 'card-ok' : 'card-ko');
+            })
+            .catch(() => {});
+    }
+    refreshStatus();
+    setInterval(refreshStatus, 5000);
+
+    function doReboot(action) {
+        var target = action === 'system' ? t('index.the_system') : t('index.the_service');
+        if (!confirm(t('index.confirm_reboot', {target: target}))) return;
+
+        var duration = action === 'system' ? 30 : 8;
+
+        fetch('/api/reboot', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: action})
+        }).catch(function(){});
+
+        // Afficher l'overlay avec timer
+        var overlay = document.getElementById('reboot-overlay');
+        overlay.style.display = 'flex';
+        document.getElementById('reboot-title').textContent =
+            action === 'system' ? t('index.restarting_system') : t('index.restarting_service');
+
+        var remaining = duration;
+        var timerEl = document.getElementById('reboot-timer');
+        var msgEl = document.getElementById('reboot-msg');
+        timerEl.textContent = remaining + 's';
+
+        var countdown = setInterval(function() {
+            remaining--;
+            timerEl.textContent = remaining + 's';
+            if (remaining <= 0) {
+                clearInterval(countdown);
+                msgEl.textContent = t('index.reconnecting');
+                tryReconnect();
+            }
+        }, 1000);
+    }
+
+    function tryReconnect() {
+        var attempts = 0;
+        var check = setInterval(function() {
+            attempts++;
+            fetch('/api/status').then(function(r) {
+                if (r.ok) {
+                    clearInterval(check);
+                    location.reload();
+                }
+            }).catch(function(){});
+            if (attempts > 30) {
+                clearInterval(check);
+                document.getElementById('reboot-msg').textContent =
+                    t('index.no_response');
+            }
+        }, 2000);
+    }
+</script>
+{% endblock %}

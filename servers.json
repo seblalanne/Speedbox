@@ -1,0 +1,20 @@
+[
+  {
+    "name": "France",
+    "host": "ping.online.net",
+    "port": 5200,
+    "favorite": false
+  },
+  {
+    "name": "France",
+    "host": "iperf3.moji.fr",
+    "port": 5200,
+    "favorite": true
+  },
+  {
+    "name": "France",
+    "host": "speedtest.milkywan.fr",
+    "port": 9200,
+    "favorite": false
+  }
+]

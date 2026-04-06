@@ -1,0 +1,276 @@
+{
+  "updated": "2026-04-03 22:08:13",
+  "source": "https://iperf.fr/iperf-servers.php",
+  "servers": [
+    {
+      "hostname": "ping.online.net",
+      "port": 5200,
+      "location": "France",
+      "region": "Europe",
+      "datacenter": "ScalewayVitry DC3",
+      "speed": "100 Gbit/s",
+      "ip_version": "IPv4 or IPv6"
+    },
+    {
+      "hostname": "ping6.online.net",
+      "port": 5200,
+      "location": "\u00cele-de-France",
+      "region": "Europe",
+      "datacenter": "ScalewayVitry DC3",
+      "speed": "100 Gbit/s",
+      "ip_version": "IPv4 or IPv6"
+    },
+    {
+      "hostname": "ping-90ms.online.net",
+      "port": 5200,
+      "location": "\u00cele-de-France",
+      "region": "Europe",
+      "datacenter": "ScalewayVitry DC3",
+      "speed": "100 Gbit/s",
+      "ip_version": "IPv4 or IPv6"
+    },
+    {
+      "hostname": "ping6-90ms.online.net",
+      "port": 5200,
+      "location": "\u00cele-de-France",
+      "region": "Europe",
+      "datacenter": "ScalewayVitry DC3",
+      "speed": "100 Gbit/s",
+      "ip_version": "IPv4 or IPv6"
+    },
+    {
+      "hostname": "iperf3.moji.fr",
+      "port": 5200,
+      "location": "France",
+      "region": "Europe",
+      "datacenter": "DC Moji",
+      "speed": "100 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "speedtest.milkywan.fr",
+      "port": 9200,
+      "location": "France",
+      "region": "Europe",
+      "datacenter": "CBOCroissy-Beaubourg",
+      "speed": "40 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "iperf.par2.as49434.net",
+      "port": 9200,
+      "location": "France",
+      "region": "Europe",
+      "datacenter": "DC Harmony Hosting",
+      "speed": "40 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "paris.bbr.iperf.bytel.fr",
+      "port": 9200,
+      "location": "France Paris BBR",
+      "region": "Europe",
+      "datacenter": "Data centersBouyguesTelecom",
+      "speed": "10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "paris.cubic.iperf.bytel.fr",
+      "port": 9200,
+      "location": "France Paris Cubic",
+      "region": "Europe",
+      "datacenter": "Data centersBouyguesTelecom",
+      "speed": "10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "mrs.bbr.iperf.bytel.fr",
+      "port": 9200,
+      "location": "France Marseille BBR",
+      "region": "Europe",
+      "datacenter": "Data centersBouyguesTelecom",
+      "speed": "10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "mrs.cubic.iperf.bytel.fr",
+      "port": 9200,
+      "location": "France Marseille Cubic",
+      "region": "Europe",
+      "datacenter": "Data centersBouyguesTelecom",
+      "speed": "10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "lyo.bbr.iperf.bytel.fr",
+      "port": 9200,
+      "location": "France Lyon BBR",
+      "region": "Europe",
+      "datacenter": "Data centersBouyguesTelecom",
+      "speed": "10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "lyo.cubic.iperf.bytel.fr",
+      "port": 9200,
+      "location": "France Lyon Cubic",
+      "region": "Europe",
+      "datacenter": "Data centersBouyguesTelecom",
+      "speed": "10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "tls.bbr.iperf.bytel.fr",
+      "port": 9200,
+      "location": "France Toulouse BBR",
+      "region": "Europe",
+      "datacenter": "Data centersBouyguesTelecom",
+      "speed": "10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "tls.cubic.iperf.bytel.fr",
+      "port": 9200,
+      "location": "France Toulouse Cubic",
+      "region": "Europe",
+      "datacenter": "Data centersBouyguesTelecom",
+      "speed": "10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "str.bbr.iperf.bytel.fr",
+      "port": 9200,
+      "location": "France Strasbourg BBR",
+      "region": "Europe",
+      "datacenter": "Data centersBouyguesTelecom",
+      "speed": "10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "str.cubic.iperf.bytel.fr",
+      "port": 9200,
+      "location": "France Strasbourg Cubic",
+      "region": "Europe",
+      "datacenter": "Data centersBouyguesTelecom",
+      "speed": "10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "poi.bbr.iperf.bytel.fr",
+      "port": 9200,
+      "location": "France Poitiers BBR",
+      "region": "Europe",
+      "datacenter": "Data centersBouyguesTelecom",
+      "speed": "10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "poi.cubic.iperf.bytel.fr",
+      "port": 9200,
+      "location": "France Poitiers Cubic",
+      "region": "Europe",
+      "datacenter": "Data centersBouyguesTelecom",
+      "speed": "10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "ren.bbr.iperf.bytel.fr",
+      "port": 9200,
+      "location": "France Rennes BBR",
+      "region": "Europe",
+      "datacenter": "Data centersBouyguesTelecom",
+      "speed": "10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "ren.cubic.iperf.bytel.fr",
+      "port": 9200,
+      "location": "France Rennes Cubic",
+      "region": "Europe",
+      "datacenter": "Data centersBouyguesTelecom",
+      "speed": "10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "speedtest.serverius.net",
+      "port": 5002,
+      "location": "Netherlands",
+      "region": "Europe",
+      "datacenter": "Serveriusdata center",
+      "speed": "10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "nl.iperf.014.fr",
+      "port": 10415,
+      "location": "Netherlands",
+      "region": "Europe",
+      "datacenter": "NextGenWebsdata center",
+      "speed": "1 Gbit/s",
+      "ip_version": "IPv4 only"
+    },
+    {
+      "hostname": "ch.iperf.014.fr",
+      "port": 15315,
+      "location": "Switzerland",
+      "region": "Europe",
+      "datacenter": "HostHatchdata center",
+      "speed": "3 Gbit/s",
+      "ip_version": "IPv4 only"
+    },
+    {
+      "hostname": "iperf.eenet.ee",
+      "port": 5201,
+      "location": "Estonia",
+      "region": "Europe",
+      "datacenter": "EENet Tartu",
+      "speed": "",
+      "ip_version": "IPv4 only"
+    },
+    {
+      "hostname": "iperf.astra.in.ua",
+      "port": 5201,
+      "location": "Ukraine",
+      "region": "Europe",
+      "datacenter": "Astra Lviv",
+      "speed": "10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "iperf.volia.net",
+      "port": 5201,
+      "location": "Ukraine",
+      "region": "Europe",
+      "datacenter": "Volia Kiev",
+      "speed": "",
+      "ip_version": "IPv4 only"
+    },
+    {
+      "hostname": "speedtest.uztelecom.uz",
+      "port": 5200,
+      "location": "Uzbekistan",
+      "region": "Asia",
+      "datacenter": "Infosystems",
+      "speed": "10 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "iperf.biznetnetworks.com",
+      "port": 5201,
+      "location": "Indonesia",
+      "region": "Asia",
+      "datacenter": "Biznet - MidplazaCimanggis",
+      "speed": "1 Gbit/s",
+      "ip_version": "IPv4 and IPv6"
+    },
+    {
+      "hostname": "iperf.he.net",
+      "port": 5201,
+      "location": "USA",
+      "region": "Americas",
+      "datacenter": "HurricaneFremont 1",
+      "speed": "",
+      "ip_version": "IPv4 and IPv6"
+    }
+  ]
+}

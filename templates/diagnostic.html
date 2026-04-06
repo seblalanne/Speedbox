@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}Diagnostic{% endblock %}
+{% block content %}
+<h1>&#128269; <span data-i18n="diag.title">Diagnostic Reseau</span></h1>
+
+<!-- PING -->
+<div class="section-collapse open">
+    <div class="section-header" onclick="toggleSection(this)">
+        <span>&#128225; <span data-i18n="diag.ping">Ping</span></span>
+        <span class="chevron">&#9660;</span>
+    </div>
+    <div class="section-body">
+        <div class="form-group">
+            <label data-i18n="diag.target">Cible</label>
+            <input type="text" id="ping-host" placeholder="8.8.8.8">
+        </div>
+        <div class="form-group">
+            <label data-i18n="diag.ping_count">Nombre de pings</label>
+            <input type="number" id="ping-count" value="4" min="1" max="50">
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" id="btn-ping" onclick="runPing()" data-i18n="diag.launch">Lancer</button>
+            <button class="btn btn-danger" id="btn-ping-stop" onclick="stopDiag()" style="display:none" data-i18n="diag.stop">Stop</button>
+        </div>
+    </div>
+</div>
+
+<!-- MTR -->
+<div class="section-collapse">
+    <div class="section-header" onclick="toggleSection(this)">
+        <span>&#127760; <span data-i18n="diag.mtr">MTR (Traceroute avance)</span></span>
+        <span class="chevron">&#9660;</span>
+    </div>
+    <div class="section-body">
+        <div class="form-group">
+            <label data-i18n="diag.target">Cible</label>
+            <input type="text" id="mtr-host" placeholder="google.com">
+        </div>
+        <div class="form-group">
+            <label data-i18n="diag.cycles">Cycles</label>
+            <input type="number" id="mtr-cycles" value="10" min="1" max="100">
+        </div>
+        <div class="form-group">
+            <label data-i18n="diag.max_hops">Max hops</label>
+            <input type="number" id="mtr-maxhops" value="20" min="5" max="50">
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" id="btn-mtr" onclick="runMtr()" data-i18n="diag.launch">Lancer</button>
+            <button class="btn btn-danger" id="btn-mtr-stop" onclick="stopDiag()" style="display:none" data-i18n="diag.stop">Stop</button>
+        </div>
+    </div>
+</div>
+
+<!-- DNS -->
+<div class="section-collapse">
+    <div class="section-header" onclick="toggleSection(this)">
+        <span>&#128270; <span data-i18n="diag.dns">DNS Lookup</span></span>
+        <span class="chevron">&#9660;</span>
+    </div>
+    <div class="section-body">
+        <div class="form-group">
+            <label data-i18n="diag.target">Cible</label>
+            <input type="text" id="dns-host" placeholder="example.com">
+        </div>
+        <div class="form-group">
+            <label data-i18n="diag.dns_server">Serveur DNS (optionnel)</label>
+            <input type="text" id="dns-server" placeholder="8.8.8.8">
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" id="btn-dns" onclick="runDns()" data-i18n="diag.launch">Lancer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Status indicator -->
+<div id="diag-status" style="display:none; margin: 16px 0;">
+    <span class="spinner"></span>
+    <span id="diag-status-text" style="color:#77aacc;"></span>
+</div>
+
+<!-- Text results (Ping / DNS) -->
+<div id="text-result-section">
+    <h2 data-i18n="diag.results">Resultats</h2>
+    <div class="card">
+        <pre class="terminal" id="diag-output" data-i18n="diag.waiting">En attente d'un test...</pre>
+    </div>
+</div>
+
+<!-- MTR results -->
+<div id="mtr-result-section" style="display:none;">
+    <h2 data-i18n="diag.mtr_results">Resultats MTR</h2>
+    <div class="card" id="mtr-meta" style="margin-bottom:12px; color:#77aacc; font-size:0.9em;"></div>
+    <div class="card" style="overflow-x:auto; padding:12px;">
+        <table id="mtr-table">
+            <thead>
+                <tr>
+                    <th>Hop</th>
+                    <th>Host</th>
+                    <th>IP</th>
+                    <th>ASN</th>
+                    <th>Loss%</th>
+                    <th>Snt</th>
+                    <th>Last</th>
+                    <th>Avg</th>
+                    <th>Best</th>
+                    <th>Wrst</th>
+                    <th>StDev</th>
+                    <th>MPLS</th>
+                </tr>
+            </thead>
+            <tbody id="mtr-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const socket = io();
+const output = document.getElementById('diag-output');
+let currentTool = null;
+
+function setRunning(tool, running) {
+    currentTool = running ? tool : null;
+    const btnStart = document.getElementById('btn-' + tool);
+    const btnStop = document.getElementById('btn-' + tool + '-stop');
+    const status = document.getElementById('diag-status');
+    if (btnStart) btnStart.disabled = running;
+    if (btnStop) btnStop.style.display = running ? '' : 'none';
+    status.style.display = running ? '' : 'none';
+}
+
+function showStatus(msg) {
+    document.getElementById('diag-status').style.display = '';
+    document.getElementById('diag-status-text').textContent = msg;
+}
+
+function runPing() {
+    const host = document.getElementById('ping-host').value.trim();
+    if (!host) return;
+    setRunning('ping', true);
+    showStatus(t('diag.ping_running', {host: host}));
+    document.getElementById('text-result-section').style.display = '';
+    document.getElementById('mtr-result-section').style.display = 'none';
+    output.textContent = '';
+    socket.emit('run_ping', {
+        host: host,
+        count: document.getElementById('ping-count').value
+    });
+}
+
+function runMtr() {
+    const host = document.getElementById('mtr-host').value.trim();
+    if (!host) return;
+    setRunning('mtr', true);
+    showStatus(t('diag.mtr_running', {host: host}));
+    document.getElementById('text-result-section').style.display = 'none';
+    document.getElementById('mtr-result-section').style.display = '';
+    document.getElementById('mtr-meta').textContent = '';
+    document.getElementById('mtr-tbody').innerHTML = '';
+    socket.emit('run_mtr', {
+        host: host,
+        cycles: document.getElementById('mtr-cycles').value,
+        maxhops: document.getElementById('mtr-maxhops').value
+    });
+}
+
+function runDns() {
+    const host = document.getElementById('dns-host').value.trim();
+    if (!host) return;
+    setRunning('dns', true);
+    showStatus(t('diag.dns_running'));
+    document.getElementById('text-result-section').style.display = '';
+    document.getElementById('mtr-result-section').style.display = 'none';
+    output.textContent = '';
+    socket.emit('run_dns', {
+        host: host,
+        server: document.getElementById('dns-server').value.trim()
+    });
+}
+
+function stopDiag() {
+    socket.emit('stop_diagnostic');
+}
+
+function resetAll() {
+    if (currentTool) setRunning(currentTool, false);
+    document.getElementById('diag-status').style.display = 'none';
+}
+
+function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+function formatMpls(mpls) {
+    if (!mpls) return '-';
+    if (Array.isArray(mpls)) {
+        return mpls.map(function(m) {
+            return 'L:' + (m.Label || m.label || '?') + ' TC:' + (m.Experimental || m.experimental || 0) + ' TTL:' + (m.TTL || m.ttl || 0);
+        }).join('<br>');
+    }
+    if (typeof mpls === 'object') {
+        return 'L:' + (mpls.Label || mpls.label || '?') + ' TC:' + (mpls.Experimental || mpls.experimental || 0) + ' TTL:' + (mpls.TTL || mpls.ttl || 0);
+    }
+    return String(mpls);
+}
+
+// --- Socket events ---
+
+socket.on('ping_output', function(data) {
+    output.textContent += data.line + '\n';
+    output.scrollTop = output.scrollHeight;
+});
+
+socket.on('ping_complete', function() {
+    resetAll();
+});
+
+socket.on('mtr_started', function(data) {
+    showStatus(data.message);
+});
+
+socket.on('mtr_progress', function(data) {
+    showStatus(t('diag.mtr_progress', {cycle: data.cycle, total: data.total}));
+});
+
+socket.on('mtr_result', function(data) {
+    resetAll();
+    // Metadata
+    document.getElementById('mtr-meta').innerHTML =
+        '<strong>' + escapeHtml(data.src) + '</strong> &rarr; <strong>' + escapeHtml(data.dst) + '</strong> &mdash; ' + data.cycles + ' cycles';
+
+    // Table
+    const tbody = document.getElementById('mtr-tbody');
+    tbody.innerHTML = '';
+    data.hubs.forEach(function(h) {
+        const tr = document.createElement('tr');
+        // Row class for loss
+        if (h.loss_class === 'critical') tr.className = 'mtr-loss-critical';
+        else if (h.loss_class === 'degraded') tr.className = 'mtr-loss-degraded';
+        else if (h.loss_class === 'warn') tr.className = 'mtr-loss-warn';
+
+        // Latency spike
+        if (h.spike) tr.classList.add('mtr-latency-spike');
+
+        // ASN formatting
+        var asnDisplay = h.asn || '';
+        if (asnDisplay === 'AS???' || asnDisplay === '???') asnDisplay = '-';
+
+        // Loss display
+        var lossHtml = h.loss.toFixed(1) + '%';
+        if (h.loss > 0) lossHtml = '<strong>' + lossHtml + '</strong>';
+
+        tr.innerHTML =
+            '<td>' + h.hop + '</td>' +
+            '<td class="mtr-host">' + escapeHtml(h.hostname) + '</td>' +
+            '<td class="mtr-ip">' + escapeHtml(h.ip) + '</td>' +
+            '<td class="mtr-asn">' + escapeHtml(asnDisplay) + '</td>' +
+            '<td class="mtr-loss-cell">' + lossHtml + '</td>' +
+            '<td>' + h.snt + '</td>' +
+            '<td>' + h.last.toFixed(1) + '</td>' +
+            '<td class="mtr-avg-cell">' + h.avg.toFixed(1) + (h.spike ? ' &#9650;' : '') + '</td>' +
+            '<td>' + h.best.toFixed(1) + '</td>' +
+            '<td>' + h.wrst.toFixed(1) + '</td>' +
+            '<td>' + h.stdev.toFixed(1) + '</td>' +
+            '<td class="mtr-mpls-cell">' + formatMpls(h.mpls) + '</td>';
+        tbody.appendChild(tr);
+    });
+});
+
+socket.on('dns_result', function(data) {
+    resetAll();
+    output.textContent = data.output;
+});
+
+socket.on('diag_error', function(data) {
+    resetAll();
+    var msg = data.message_key ? t(data.message_key) : data.message;
+    output.textContent += '\n' + t('diag.error', {msg: msg});
+    document.getElementById('text-result-section').style.display = '';
+});
+
+socket.on('diag_stopped', function(data) {
+    resetAll();
+    var msg = data.message_key ? t(data.message_key) : data.message;
+    output.textContent += '\n' + t('diag.stopped', {msg: msg});
+    document.getElementById('text-result-section').style.display = '';
+});
+</script>
+{% endblock %}
