@@ -1,0 +1,10 @@
+{
+  "protocol": "ftp",
+  "host": "",
+  "port": 21,
+  "username": "",
+  "password_b64": "",
+  "remote_path": "/",
+  "tls": false,
+  "save_password": true
+}

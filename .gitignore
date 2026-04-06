@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+
+# Secrets and user config
+config/.secret_key
+config/ftp_config.json
+
+# User test results
+results/*.json
+
+# OS
+.DS_Store
+*.swp
+*~

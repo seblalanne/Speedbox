@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>SpeedBOX - {% block title %}Accueil{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/i18n.js"></script>
+    <script src="/static/js/socket.io.min.js"></script>
+    <script src="/static/js/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Barre de navigation desktop -->
+    <nav class="navbar">
+        <div class="nav-brand"><img src="/static/favicon.png" alt="" class="brand-logo"> SpeedBOX <button id="lang-toggle-mobile" class="lang-btn lang-btn-mobile" onclick="toggleLang()">EN</button></div>
+        <div class="nav-links">
+            <a href="/" class="nav-link" data-page="home" data-i18n="nav.home">Accueil</a>
+            <a href="/speedtest" class="nav-link" data-page="speedtest" data-i18n="nav.speedtest">SpeedTest</a>
+            <a href="/network" class="nav-link" data-page="network" data-i18n="nav.network">Reseau</a>
+            <a href="/diagnostic" class="nav-link" data-page="diagnostic" data-i18n="nav.diagnostic">Diagnostic</a>
+            <a href="/history" class="nav-link" data-page="history" data-i18n="nav.history">Historique</a>
+            <button id="lang-toggle" class="lang-btn" onclick="toggleLang()">EN</button>
+        </div>
+    </nav>
+
+    <!-- Barre de navigation mobile (bas) -->
+    <nav class="bottom-bar">
+        <div class="bottom-bar-inner">
+            <a href="/" class="bottom-tab" data-page="home">
+                <svg viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span data-i18n="nav.home">Accueil</span>
+            </a>
+            <a href="/speedtest" class="bottom-tab" data-page="speedtest">
+                <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span data-i18n="nav.test">Test</span>
+            </a>
+            <a href="/network" class="bottom-tab" data-page="network">
+                <svg viewBox="0 0 24 24"><path d="M8 14v-4m4 4V6m4 8v-2M3 20h18" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span data-i18n="nav.network">Reseau</span>
+            </a>
+            <a href="/diagnostic" class="bottom-tab" data-page="diagnostic">
+                <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span data-i18n="nav.diag">Diag</span>
+            </a>
+            <a href="/history" class="bottom-tab" data-page="history">
+                <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span data-i18n="nav.histo">Histo</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Contenu principal -->
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Pied de page -->
+    <footer class="footer">
+        <span><a href="https://github.com/OWNER/speedbox" target="_blank" rel="noopener" style="color:#00d4ff;text-decoration:none;">SpeedBOX v1.0</a> by <a href="https://www.linkedin.com/in/slalanne/" target="_blank" rel="noopener" style="color:#00d4ff;text-decoration:none;">slalanne</a> | AGPL-3.0</span>
+        <span id="clock"></span>
+    </footer>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Scripts globaux -->
+    <script>
+        // Horloge
+        function updateClock() {
+            document.getElementById('clock').textContent = new Date().toLocaleString(getLocale());
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+        // Apply i18n on load
+        applyTranslations();
+
+        // Active nav link
+        (function() {
+            var path = location.pathname;
+            var page = 'home';
+            if (path.indexOf('/speedtest') === 0) page = 'speedtest';
+            else if (path.indexOf('/network') === 0) page = 'network';
+            else if (path.indexOf('/diagnostic') === 0) page = 'diagnostic';
+            else if (path.indexOf('/history') === 0) page = 'history';
+
+            document.querySelectorAll('.nav-link[data-page], .bottom-tab[data-page]').forEach(function(el) {
+                if (el.getAttribute('data-page') === page) el.classList.add('active');
+            });
+        })();
+
+        // Toast notifications
+        function showToast(message, type) {
+            type = type || 'info';
+            var container = document.getElementById('toast-container');
+            var toast = document.createElement('div');
+            toast.className = 'toast ' + type;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(function() {
+                toast.classList.add('fade-out');
+                setTimeout(function() { toast.remove(); }, 300);
+            }, 3500);
+        }
+
+        // Collapsible sections
+        function toggleSection(el) {
+            var section = el.closest('.section-collapse');
+            section.classList.toggle('open');
+        }
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

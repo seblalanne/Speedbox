@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+{% block title %}Reseau{% endblock %}
+{% block content %}
+<h1>&#128274; <span data-i18n="net.title">Configuration Reseau</span></h1>
+
+<!-- Statut interfaces -->
+<div class="grid">
+    <div class="card" id="card-eth0">
+        <h3>&#128268; <span data-i18n="net.eth_port">Port Ethernet</span></h3>
+        <p><span data-i18n="net.status">Statut</span>: <span id="eth0-st">--</span></p>
+        <p>IP: <span id="eth0-ip">--</span></p>
+        <p><span data-i18n="net.mask">Masque</span>: <span id="eth0-mask">--</span></p>
+        <p>MAC: <span id="eth0-mac">--</span></p>
+        <p><span data-i18n="net.speed">Vitesse</span>: <span id="eth0-speed">--</span></p>
+    </div>
+    <div class="card" id="card-wlan0">
+        <h3>&#128225; <span data-i18n="net.wifi_ap">AP Wifi</span></h3>
+        <p><span data-i18n="net.status">Statut</span>: <span id="wlan0-st">--</span></p>
+        <p>IP: <span id="wlan0-ip">--</span></p>
+        <p>MAC: <span id="wlan0-mac">--</span></p>
+    </div>
+    <div class="card">
+        <h3>&#127760; <span data-i18n="net.gw_dns">Passerelle / DNS</span></h3>
+        <p><span data-i18n="net.gateway">Gateway</span>: <span id="gateway">--</span></p>
+        <p>DNS: <span id="dns">--</span></p>
+    </div>
+</div>
+
+<!-- Configuration IP -->
+<div class="section-collapse open">
+    <div class="section-header" onclick="toggleSection(this)">
+        <span>&#128268; <span data-i18n="net.ip_config">Modifier la configuration IP du port Ethernet</span></span>
+        <span class="chevron">&#9660;</span>
+    </div>
+    <div class="section-body">
+        <div class="form-group">
+            <label data-i18n="net.mode">Mode</label>
+            <select id="ip-mode">
+                <option value="dhcp" data-i18n="net.dhcp">DHCP</option>
+                <option value="static" data-i18n="net.static">Statique</option>
+            </select>
+        </div>
+        <div id="static-fields" style="display:none;">
+            <div class="form-group"><label data-i18n="net.ip_addr">Adresse IP</label><input type="text" id="ip-addr" placeholder="192.168.1.100"></div>
+            <div class="form-group"><label data-i18n="net.cidr_mask">Masque (CIDR)</label><input type="text" id="ip-mask" placeholder="24"></div>
+            <div class="form-group"><label data-i18n="net.gw">Passerelle</label><input type="text" id="ip-gw" placeholder="192.168.1.1"></div>
+            <div class="form-group"><label>DNS</label><input type="text" id="ip-dns" placeholder="8.8.8.8"></div>
+        </div>
+        <button class="btn btn-primary" onclick="applyIP()" data-i18n="net.apply">Appliquer</button>
+        <span id="ip-result" style="margin-left:12px;"></span>
+    </div>
+</div>
+
+<!-- VLAN -->
+<div class="section-collapse">
+    <div class="section-header" onclick="toggleSection(this)">
+        <span>&#128274; <span data-i18n="net.vlan">VLAN (Port Ethernet)</span></span>
+        <span class="chevron">&#9660;</span>
+    </div>
+    <div class="section-body">
+        <input type="hidden" id="vlan-iface" value="eth0">
+        <div class="form-group"><label data-i18n="net.vlan_id">VLAN ID</label><input type="number" id="vlan-id" placeholder="100"></div>
+        <div class="form-group"><label data-i18n="net.vlan_ip">IP du VLAN</label><input type="text" id="vlan-ip" placeholder="10.0.100.1/24"></div>
+        <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="addVlan()" data-i18n="net.create_vlan">Creer VLAN</button>
+            <button class="btn btn-danger" onclick="delVlan()" data-i18n="net.delete_vlan">Supprimer VLAN</button>
+        </div>
+        <span id="vlan-result" style="display:block;margin-top:10px;"></span>
+    </div>
+</div>
+
+<!-- FTP/SFTP -->
+<div class="section-collapse">
+    <div class="section-header" onclick="toggleSection(this)">
+        <span>&#128228; <span data-i18n="net.ftp_title">Envoi FTP / SFTP</span></span>
+        <span class="chevron">&#9660;</span>
+    </div>
+    <div class="section-body">
+    <div class="ftp-grid">
+        <div class="ftp-col">
+            <h3 class="ftp-title">&#9881; <span data-i18n="net.ftp_server_config">Configuration serveur</span></h3>
+            <div class="ftp-row">
+                <div class="ftp-field">
+                    <label data-i18n="net.protocol">Protocole</label>
+                    <div class="proto-switch">
+                        <button class="proto-btn active" id="btnFtp" onclick="setProto('ftp')">FTP</button>
+                        <button class="proto-btn" id="btnSftp" onclick="setProto('sftp')">SFTP</button>
+                        <button class="proto-btn" id="btnScp" onclick="setProto('scp')">SCP</button>
+                    </div>
+                </div>
+                <div class="ftp-field" id="tlsGroup">
+                    <label data-i18n="net.encryption">Chiffrement</label>
+                    <label class="chk-line"><input type="checkbox" id="ftpTls"> FTPS (TLS)</label>
+                </div>
+            </div>
+            <div class="ftp-row">
+                <div class="ftp-field" style="flex:2">
+                    <label data-i18n="net.server">Serveur</label>
+                    <input type="text" id="ftpHost" placeholder="ftp.exemple.com">
+                </div>
+                <div class="ftp-field" style="flex:0.6">
+                    <label data-i18n="speedtest.port">Port</label>
+                    <input type="number" id="ftpPort" value="21">
+                </div>
+            </div>
+            <div class="ftp-row">
+                <div class="ftp-field">
+                    <label data-i18n="net.user">Utilisateur</label>
+                    <input type="text" id="ftpUser" placeholder="admin">
+                </div>
+                <div class="ftp-field">
+                    <label data-i18n="net.password">Mot de passe</label>
+                    <div style="display:flex">
+                        <input type="password" id="ftpPass" placeholder="********" style="border-radius:8px 0 0 8px;flex:1">
+                        <button onclick="var p=document.getElementById('ftpPass');p.type=p.type=='password'?'text':'password'" class="eye-btn">&#128065;</button>
+                    </div>
+                </div>
+            </div>
+            <div class="ftp-field">
+                <label data-i18n="net.remote_dir">Repertoire distant</label>
+                <input type="text" id="ftpPath" value="/" placeholder="/upload/">
+            </div>
+            <label class="chk-line" style="margin:10px 0"><input type="checkbox" id="ftpSavePass" checked> <span data-i18n="net.save_password">Memoriser le mot de passe</span></label>
+            <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+                <button class="btn btn-primary" onclick="ftpSave()">&#128190; <span data-i18n="net.save">Sauvegarder</span></button>
+                <button class="btn btn-test" onclick="ftpTest()">&#128268; <span data-i18n="net.test">Tester</span></button>
+            </div>
+            <div id="ftpStatus" class="ftp-msg" style="display:none"></div>
+        </div>
+
+        <div class="ftp-col">
+            <h3 class="ftp-title">&#128228; <span data-i18n="net.send_results">Envoyer les resultats</span></h3>
+            <div class="send-opts">
+                <label class="send-opt">
+                    <input type="radio" name="src" value="all_results" checked>
+                    <div class="send-card"><div style="font-size:1.8em">&#128230;</div><strong data-i18n="net.all">Tous</strong><small data-i18n="net.all_desc">Export complet</small></div>
+                </label>
+                <label class="send-opt">
+                    <input type="radio" name="src" value="last_result">
+                    <div class="send-card"><div style="font-size:1.8em">&#128196;</div><strong data-i18n="net.last">Dernier</strong><small data-i18n="net.last_desc">Plus recent</small></div>
+                </label>
+            </div>
+            <div class="ftp-field">
+                <label data-i18n="net.filename">Nom du fichier (optionnel)</label>
+                <input type="text" id="ftpFilename" data-i18n-placeholder="net.filename_placeholder" placeholder="auto: speedbox_HOST_DATE.json">
+            </div>
+            <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1.05em;margin-top:12px" onclick="ftpSend()" id="btnSend">&#128228; <span data-i18n="net.send">Envoyer</span></button>
+            <div id="sendStatus" class="ftp-msg" style="display:none"></div>
+            <div id="remoteListing" style="display:none;margin-top:15px">
+                <h4 style="color:#aaa">&#128193; <span data-i18n="net.remote_content">Contenu distant</span></h4>
+                <div class="remote-list" id="remoteFiles"></div>
+            </div>
+        </div>
+    </div>
+    </div>
+</div>
+
+<style>
+.ftp-grid{display:grid;grid-template-columns:1fr 1fr;gap:25px}
+@media(max-width:900px){.ftp-grid{grid-template-columns:1fr}}
+.ftp-col{background:rgba(0,0,0,0.2);border-radius:12px;padding:20px;border:1px solid rgba(0,255,255,0.1)}
+.ftp-title{color:#00ffff;margin-bottom:15px}
+.ftp-row{display:flex;gap:12px}
+@media(max-width:600px){.ftp-row{flex-direction:column}}
+.ftp-field{flex:1;margin-bottom:12px}
+.ftp-field label{display:block;font-size:.82em;color:#00ffff;margin-bottom:5px;font-weight:500}
+.ftp-field input[type=text],.ftp-field input[type=number],.ftp-field input[type=password]{width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(0,255,255,0.2);border-radius:8px;padding:10px 12px;color:#fff;font-size:.95em;box-sizing:border-box}
+.ftp-field input:focus{outline:none;border-color:#00ffff;box-shadow:0 0 8px rgba(0,255,255,0.2)}
+.proto-switch{display:flex;border-radius:8px;overflow:hidden;border:1px solid rgba(0,255,255,0.3)}
+.proto-btn{flex:1;padding:10px 16px;background:rgba(0,0,0,0.3);color:#888;border:none;cursor:pointer;font-weight:600;transition:.2s}
+.proto-btn.active{background:rgba(0,255,255,0.15);color:#00ffff}
+.proto-btn:hover{background:rgba(0,255,255,0.1)}
+.chk-line{display:flex;align-items:center;gap:8px;color:#ccc;font-size:.9em;cursor:pointer}
+.chk-line input{accent-color:#00ffff}
+.eye-btn{background:rgba(0,255,255,0.1);border:1px solid rgba(0,255,255,0.2);border-left:0;border-radius:0 8px 8px 0;color:#fff;cursor:pointer;padding:0 10px}
+.btn-test{background:rgba(100,100,255,0.2);border:1px solid rgba(100,100,255,0.4);color:#88aaff;cursor:pointer;padding:10px 18px;border-radius:8px}
+.btn-test:hover{background:rgba(100,100,255,0.3)}
+.ftp-msg{margin-top:12px;padding:12px 15px;border-radius:8px;font-size:.9em}
+.ftp-msg.ok{background:rgba(0,255,100,0.1);border:1px solid rgba(0,255,100,0.3);color:#66ff99}
+.ftp-msg.err{background:rgba(255,50,50,0.1);border:1px solid rgba(255,50,50,0.3);color:#ff6666}
+.ftp-msg.info{background:rgba(0,150,255,0.1);border:1px solid rgba(0,150,255,0.3);color:#66aaff}
+.send-opts{display:flex;gap:12px;margin-bottom:15px}
+.send-opt{flex:1;cursor:pointer}
+.send-opt input{display:none}
+.send-card{text-align:center;padding:18px 10px;background:rgba(0,0,0,0.3);border:2px solid rgba(0,255,255,0.15);border-radius:10px;transition:.2s}
+.send-opt input:checked+.send-card{border-color:#00ffff;background:rgba(0,255,255,0.08);box-shadow:0 0 12px rgba(0,255,255,0.15)}
+.send-card:hover{border-color:rgba(0,255,255,0.4)}
+.send-card strong{display:block;margin-top:6px;color:#fff}
+.send-card small{color:#888;font-size:.8em}
+.remote-list{max-height:150px;overflow-y:auto;background:rgba(0,0,0,0.3);border-radius:8px;padding:10px;font-family:monospace;font-size:.8em;color:#aaa}
+.remote-list div{padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let ftpProto='ftp';
+
+function setProto(p){
+    ftpProto=p;
+    document.getElementById('btnFtp').classList.toggle('active',p==='ftp');
+    document.getElementById('btnSftp').classList.toggle('active',p==='sftp');
+    document.getElementById('btnScp').classList.toggle('active',p==='scp');
+    document.getElementById('ftpPort').value=(p==='ftp')?21:22;
+    document.getElementById('tlsGroup').style.display=(p==='ftp')?'':'none';
+}
+
+function getFtpData(){
+    return{
+        protocol:ftpProto,
+        host:document.getElementById('ftpHost').value.trim(),
+        port:parseInt(document.getElementById('ftpPort').value)||(ftpProto==='ftp'?21:22),
+        username:document.getElementById('ftpUser').value.trim(),
+        password:document.getElementById('ftpPass').value,
+        remote_path:document.getElementById('ftpPath').value.trim()||'/',
+        tls:document.getElementById('ftpTls').checked,
+        save_password:document.getElementById('ftpSavePass').checked
+    };
+}
+
+function showMsg(id,msg,cls){
+    const el=document.getElementById(id);
+    el.textContent=msg;el.className='ftp-msg '+cls;el.style.display='block';
+}
+
+async function ftpSave(){
+    const r=await fetch('/api/ftp/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getFtpData())});
+    const d=await r.json();
+    showMsg('ftpStatus',d.success?t('net.config_saved'):t('srv.error'),d.success?'ok':'err');
+    showToast(d.success?t('net.ftp_config_saved'):t('net.save_error'),d.success?'success':'error');
+}
+
+async function ftpTest(){
+    showMsg('ftpStatus',t('net.connecting'),'info');
+    const data=getFtpData();
+    const r=await fetch('/api/ftp/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    const d=await r.json();
+    var msg = d.message_key ? t(d.message_key) : d.message;
+    showMsg('ftpStatus',msg,d.success?'ok':'err');
+    showToast(msg, d.success?'success':'error');
+    if(d.success){
+        fetch('/api/ftp/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+        if(d.listing&&d.listing.length>0){
+            document.getElementById('remoteListing').style.display='block';
+            document.getElementById('remoteFiles').innerHTML=d.listing.map(f=>'<div>'+f+'</div>').join('');
+        }
+    }
+}
+
+async function ftpSend(){
+    const btn=document.getElementById('btnSend');
+    btn.disabled=true;btn.textContent=t('net.sending');
+    showMsg('sendStatus',t('net.sending'),'info');
+    const data=getFtpData();
+    data.file_source=document.querySelector('input[name=src]:checked').value;
+    data.filename=document.getElementById('ftpFilename').value.trim();
+    try{
+        const r=await fetch('/api/ftp/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+        const d=await r.json();
+        var msg = d.message_key ? t(d.message_key) : d.message;
+        showMsg('sendStatus',msg,d.success?'ok':'err');
+    }catch(e){showMsg('sendStatus',t('srv.error')+': '+e.message,'err');}
+    btn.disabled=false;btn.innerHTML='&#128228; <span data-i18n="net.send">' + t('net.send') + '</span>';
+}
+
+async function loadFtpConfig(){
+    try{
+        const r=await fetch('/api/ftp/config');
+        const d=await r.json();
+        if(d.host){
+            setProto(d.protocol||'ftp');
+            document.getElementById('ftpHost').value=d.host||'';
+            document.getElementById('ftpPort').value=d.port||(d.protocol==='sftp'?22:21);
+            document.getElementById('ftpUser').value=d.username||'';
+            document.getElementById('ftpPass').value=d.password||'';
+            document.getElementById('ftpPath').value=d.remote_path||'/';
+            document.getElementById('ftpTls').checked=d.tls||false;
+            document.getElementById('ftpSavePass').checked=d.save_password!==false;
+        }
+    }catch(e){}
+}
+loadFtpConfig();
+
+// === Reseau existant ===
+document.getElementById('ip-mode').addEventListener('change',function(){
+    document.getElementById('static-fields').style.display=this.value==='static'?'block':'none';
+});
+
+// Charger la configuration actuelle de eth0
+async function loadNetConfig(){
+    try{
+        const r=await fetch('/api/network/config');
+        const d=await r.json();
+        var modeSelect=document.getElementById('ip-mode');
+        if(d.mode==='static'){
+            modeSelect.value='static';
+            document.getElementById('static-fields').style.display='block';
+            document.getElementById('ip-addr').value=d.ip||'';
+            document.getElementById('ip-mask').value=d.mask||'24';
+            document.getElementById('ip-gw').value=d.gateway||'';
+            document.getElementById('ip-dns').value=d.dns||'';
+        }else{
+            modeSelect.value='dhcp';
+            document.getElementById('static-fields').style.display='none';
+        }
+    }catch(e){}
+}
+loadNetConfig();
+
+function refreshNet(){
+    fetch('/api/status').then(r=>r.json()).then(d=>{
+        document.getElementById('eth0-st').textContent=d.eth0.status||'--';
+        document.getElementById('eth0-ip').textContent=d.eth0.ip||'--';
+        document.getElementById('eth0-mask').textContent=d.eth0.mask||'--';
+        document.getElementById('eth0-mac').textContent=d.eth0.mac||'--';
+        document.getElementById('eth0-speed').textContent=d.eth0.speed||'--';
+        document.getElementById('wlan0-st').textContent=d.wlan0.status||'--';
+        document.getElementById('wlan0-ip').textContent=d.wlan0.ip||'--';
+        document.getElementById('wlan0-mac').textContent=d.wlan0.mac||'--';
+        document.getElementById('gateway').textContent=d.gateway||'--';
+        document.getElementById('dns').textContent=d.dns||'--';
+        // Couleur selon statut
+        var ce=document.getElementById('card-eth0');
+        if(ce) ce.className='card '+(d.eth0.status==='UP'?'card-ok':'card-ko');
+        var cw=document.getElementById('card-wlan0');
+        if(cw) cw.className='card '+(d.wlan0.status==='UP'?'card-ok':'card-ko');
+    }).catch(()=>{});
+}
+refreshNet();setInterval(refreshNet,10000);
+
+async function applyIP(){
+    const mode=document.getElementById('ip-mode').value;
+    const body={mode};
+    if(mode==='static'){
+        body.ip=document.getElementById('ip-addr').value;
+        body.mask=document.getElementById('ip-mask').value;
+        body.gateway=document.getElementById('ip-gw').value;
+        body.dns=document.getElementById('ip-dns').value;
+    }
+    var resEl=document.getElementById('ip-result');
+    resEl.textContent=t('net.applying');
+    resEl.style.color='#f59e0b';
+    try{
+        const r=await fetch('/api/network/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const d=await r.json();
+        var msg = d.message_key ? t(d.message_key) : (d.message||d.error||'OK');
+        resEl.textContent=msg;
+        resEl.style.color=d.success?'#10b981':'#ef4444';
+        showToast(msg, d.success?'success':'error');
+        setTimeout(function(){ refreshNet(); loadNetConfig(); },2000);
+    }catch(e){
+        resEl.textContent=t('net.connection_lost');
+        resEl.style.color='#f59e0b';
+        showToast(t('net.connection_lost_toast'), 'info');
+    }
+}
+
+async function addVlan(){
+    const body={
+        interface:document.getElementById('vlan-iface').value,
+        vlan_id:document.getElementById('vlan-id').value,
+        ip:document.getElementById('vlan-ip').value
+    };
+    const r=await fetch('/api/network/vlan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    var msg = d.message_key ? t(d.message_key) : (d.message||d.error||'OK');
+    document.getElementById('vlan-result').textContent=msg;
+}
+
+async function delVlan(){
+    const body={
+        interface:document.getElementById('vlan-iface').value,
+        vlan_id:document.getElementById('vlan-id').value
+    };
+    const r=await fetch('/api/network/vlan/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    var msg = d.message_key ? t(d.message_key) : (d.message||d.error||'OK');
+    document.getElementById('vlan-result').textContent=msg;
+}
+</script>
+{% endblock %}

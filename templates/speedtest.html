@@ -1,0 +1,824 @@
+{% extends "base.html" %}
+{% block title %}SpeedTest{% endblock %}
+{% block content %}
+<style>
+    .spinner-overlay {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        margin: 16px 0;
+        padding: 14px;
+        background: rgba(0,20,40,0.6);
+        border: 1px solid #1e3a5f;
+        border-radius: 10px;
+    }
+    .spinner-overlay.active { display: flex; }
+    .spinner {
+        width: 32px; height: 32px;
+        border: 3px solid #1e2d45;
+        border-top: 3px solid #00d4ff;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-text {
+        color: #00d4ff;
+        font-size: 0.95rem;
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .progress-fill.animated {
+        background: repeating-linear-gradient(
+            -45deg,
+            #00d4ff,
+            #00d4ff 10px,
+            #0099cc 10px,
+            #0099cc 20px
+        );
+        background-size: 28px 28px;
+        animation: barberpole 0.6s linear infinite;
+    }
+    @keyframes barberpole { to { background-position: 28px 0; } }
+
+    /* Layout 2 colonnes */
+    .test-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 768px) { .test-layout { grid-template-columns: 1fr; } }
+
+    /* Toggle buttons (direction / protocole) */
+    .toggle-group { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid #1e3a5f; }
+    .toggle-btn {
+        flex: 1; padding: 10px 12px; background: #0d1220; color: #8899aa;
+        border: none; cursor: pointer; font-size: 0.95em; font-weight: 600;
+        transition: 0.2s; min-height: 44px; text-align: center;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .toggle-btn.active { background: rgba(0,212,255,0.15); color: #00d4ff; }
+    .toggle-btn:hover:not(.active) { background: #1a2540; }
+
+    /* Presets bande passante */
+    .preset-group { display: flex; flex-wrap: wrap; gap: 6px; }
+    .preset-btn {
+        padding: 8px 12px; background: #0d1220; border: 1px solid #1e3a5f;
+        border-radius: 6px; color: #8899aa; cursor: pointer; font-size: 0.85em;
+        font-weight: 600; transition: 0.2s; min-height: 38px;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .preset-btn.active { border-color: #00d4ff; color: #00d4ff; background: rgba(0,212,255,0.1); }
+    .preset-btn:hover:not(.active) { border-color: #556; color: #ccc; }
+</style>
+
+<h1>&#128640; <span data-i18n="speedtest.title">SpeedTest iperf3</span></h1>
+
+<div class="grid">
+    <!-- Serveurs enregistres -->
+    <div class="card" style="grid-column: 1 / -1;">
+        <h3>&#11088; <span data-i18n="speedtest.saved_servers">Serveurs enregistres</span></h3>
+        <div id="server-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+            <span style="color:#556;" data-i18n="speedtest.loading">Chargement...</span>
+        </div>
+        <details style="margin-top:8px;">
+            <summary style="color:#00d4ff; cursor:pointer;">&#10133; <span data-i18n="speedtest.add_server">Enregistrer un nouveau serveur</span></summary>
+            <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:end;">
+                <div class="form-group" style="margin:0; flex:1; min-width:120px;">
+                    <label data-i18n="speedtest.name">Nom</label>
+                    <input type="text" id="save-name" placeholder="Mon serveur">
+                </div>
+                <div class="form-group" style="margin:0; flex:1; min-width:140px;">
+                    <label data-i18n="speedtest.host">Hote</label>
+                    <input type="text" id="save-host" placeholder="192.168.1.1">
+                </div>
+                <div class="form-group" style="margin:0; width:80px;">
+                    <label data-i18n="speedtest.port">Port</label>
+                    <input type="number" id="save-port" value="5201">
+                </div>
+                <button class="btn btn-secondary" onclick="saveServer()" data-i18n="speedtest.register">Enregistrer</button>
+            </div>
+        </details>
+    </div>
+
+    <!-- Serveurs publics iperf3 -->
+    <div class="card" style="grid-column: 1 / -1; overflow:hidden;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+            <h3 style="margin:0;">&#127760; <span data-i18n="speedtest.public_servers">Serveurs publics</span></h3>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span id="pub-updated" style="color:#556; font-size:0.75em;"></span>
+                <button class="btn btn-secondary" id="btn-pub-update" onclick="updatePublicServers()" style="font-size:0.8em; padding:6px 12px;">&#128260; <span data-i18n="speedtest.update">Maj</span></button>
+            </div>
+        </div>
+        <div id="pub-region-tabs" style="display:none;"></div>
+        <div id="pub-server-list" style="font-size:0.85em; color:#556; display:none; overflow:hidden;"></div>
+        <div id="pub-empty-msg" style="font-size:0.85em; color:#556;" data-i18n="speedtest.no_public">
+            Aucune liste. Cliquez "Maj" pour importer depuis iperf.fr
+        </div>
+    </div>
+
+    <!-- Layout 2 colonnes: Parametres | Resultats -->
+    <div class="test-layout" style="grid-column: 1 / -1;">
+
+        <!-- Colonne gauche: Parametres -->
+        <div class="card">
+            <h3 data-i18n="speedtest.params">Parametres</h3>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <div class="form-group" style="flex:1;min-width:140px;">
+                    <label data-i18n="speedtest.server">Serveur (IP/hostname)</label>
+                    <input type="text" id="server" data-i18n-placeholder="speedtest.server_placeholder" placeholder="ex: 192.168.1.100">
+                </div>
+                <div class="form-group" style="width:90px;">
+                    <label data-i18n="speedtest.port">Port</label>
+                    <input type="number" id="port" value="5201">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label data-i18n="speedtest.direction">Direction</label>
+                <div class="toggle-group">
+                    <button type="button" class="toggle-btn" data-val="upload" onclick="setDirection(this)" id="dir-upload">&#8593; Upload</button>
+                    <button type="button" class="toggle-btn active" data-val="download" onclick="setDirection(this)" id="dir-download">&#8595; Download</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label data-i18n="speedtest.protocol">Protocole</label>
+                <div class="toggle-group">
+                    <button type="button" class="toggle-btn active" data-val="tcp" onclick="setProtocol(this)" id="proto-tcp">TCP</button>
+                    <button type="button" class="toggle-btn" data-val="udp" onclick="setProtocol(this)" id="proto-udp">UDP</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label data-i18n="speedtest.target_bitrate">Debit cible</label>
+                <div class="preset-group">
+                    <button type="button" class="preset-btn" onclick="setBandwidth(this,'10M')">10M</button>
+                    <button type="button" class="preset-btn" onclick="setBandwidth(this,'20M')">20M</button>
+                    <button type="button" class="preset-btn" onclick="setBandwidth(this,'50M')">50M</button>
+                    <button type="button" class="preset-btn" onclick="setBandwidth(this,'100M')">100M</button>
+                    <button type="button" class="preset-btn" onclick="setBandwidth(this,'200M')">200M</button>
+                    <button type="button" class="preset-btn" onclick="setBandwidth(this,'500M')">500M</button>
+                    <button type="button" class="preset-btn" onclick="setBandwidth(this,'1G')">1G</button>
+                    <button type="button" class="preset-btn active" onclick="setBandwidth(this,'0')">Max</button>
+                </div>
+                <input type="hidden" id="bandwidth" value="0">
+            </div>
+
+            <details style="margin-top:4px; margin-bottom:12px;">
+                <summary style="color:#00d4ff; cursor:pointer; padding:8px 0; min-height:44px; display:flex; align-items:center; font-size:0.9em;">&#9881; <span data-i18n="speedtest.advanced">Options avancees</span></summary>
+                <div style="margin-top:10px;">
+                    <div class="form-group">
+                        <label data-i18n="speedtest.test_name">Nom du test</label>
+                        <input type="text" id="test-name" data-i18n-placeholder="speedtest.test_name_placeholder" placeholder="ex: Client-Paris-01">
+                    </div>
+                    <div style="display:flex;gap:10px;">
+                        <div class="form-group" style="flex:1;">
+                            <label data-i18n="speedtest.duration">Duree (s)</label>
+                            <input type="number" id="duration" value="10" min="1" max="300">
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label data-i18n="speedtest.streams">Streams</label>
+                            <input type="number" id="threads" value="1" min="1" max="128">
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                <button class="btn btn-primary" id="btn-start" onclick="startTest()" style="flex:1;">&#9654; <span data-i18n="speedtest.start">Lancer</span></button>
+                <button class="btn btn-danger" id="btn-stop" onclick="stopTest()" disabled style="flex:1;">&#9632; <span data-i18n="speedtest.stop">Stop</span></button>
+                <button id="btn-quicktest" class="btn" onclick="openQuickTest()" style="background:#3498db;color:#fff;flex:1;">&#9889; QuickTest</button>
+            </div>
+        </div>
+
+        <!-- Colonne droite: Resultats -->
+        <div class="card">
+            <h3 data-i18n="speedtest.results">Resultats</h3>
+            <div class="spinner-overlay" id="test-spinner">
+                <div class="spinner"></div>
+                <span class="spinner-text" id="spinner-msg" data-i18n="speedtest.testing">Test en cours...</span>
+                <span class="spinner-text" id="spinner-timer"></span>
+            </div>
+            <div class="progress-bar" style="margin-bottom:10px;">
+                <div class="progress-fill" id="progress" style="width:0%"></div>
+            </div>
+            <div id="results" style="display:none;">
+                <div class="stat-grid" id="stat-grid"></div>
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label data-i18n="speedtest.logs">Logs</label>
+                <textarea id="log" readonly rows="14" style="width:100%;background:#0a0a12;color:#7fdbca;font-family:monospace;font-size:0.82rem;border:1px solid #1e3a5f;border-radius:6px;padding:8px;resize:vertical;box-sizing:border-box;"></textarea>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    var socket = io();
+    var countdownTimer = null;
+
+    function log(msg) {
+        var el = document.getElementById('log');
+        el.value += msg + '\n';
+        el.scrollTop = el.scrollHeight;
+    }
+
+    // === Gestion serveurs ===
+    function loadServers() {
+        fetch('/api/servers').then(r => r.json()).then(function(servers) {
+            var container = document.getElementById('server-list');
+            if (servers.length === 0) {
+                container.innerHTML = '<span style="color:#556;">' + t('speedtest.no_servers') + '</span>';
+                return;
+            }
+            container.innerHTML = '';
+            servers.forEach(function(s, i) {
+                var row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0d253f;border:1px solid #1e3a5f;border-radius:8px;margin-bottom:6px;';
+                // Etoile favori
+                var starBtn = document.createElement('button');
+                starBtn.innerHTML = s.favorite ? '\u2B50' : '\u2606';
+                starBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:1.3rem;padding:4px;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;';
+                starBtn.title = t('speedtest.favorite');
+                starBtn.onclick = function(e) { e.stopPropagation(); toggleFavorite(i); };
+                // Info (clic = selectionner)
+                var info = document.createElement('div');
+                info.style.cssText = 'flex:1;cursor:pointer;min-width:0;overflow:hidden;';
+                info.innerHTML = '<div style="color:#e0e0e0;font-size:0.85em;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + s.name + '</div><div style="color:#556;font-size:0.7em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + s.host + ':' + s.port + '</div>';
+                info.onclick = function() {
+                    document.getElementById('server').value = s.host;
+                    document.getElementById('port').value = s.port;
+                    showToast(t('speedtest.selected', {host: s.host, port: s.port}), 'info');
+                };
+                // Bouton supprimer
+                var delBtn = document.createElement('button');
+                delBtn.innerHTML = '&#10060;';
+                delBtn.style.cssText = 'background:none;border:1px solid #7f1d1d;border-radius:6px;color:#f44;cursor:pointer;padding:4px 8px;font-size:0.9em;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;';
+                delBtn.title = t('speedtest.delete');
+                delBtn.onclick = function(e) { e.stopPropagation(); deleteServer(i); };
+                row.appendChild(starBtn);
+                row.appendChild(info);
+                row.appendChild(delBtn);
+                container.appendChild(row);
+            });
+        });
+    }
+
+    function saveServer() {
+        var name = document.getElementById('save-name').value.trim();
+        var host = document.getElementById('save-host').value.trim();
+        var port = parseInt(document.getElementById('save-port').value) || 5201;
+        if (!name || !host) { alert(t('speedtest.name_host_required')); return; }
+        fetch('/api/servers', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: name, host: host, port: port})
+        }).then(r => r.json()).then(function(d) {
+            if (d.error) { alert(d.message_key ? t(d.message_key) : d.error); return; }
+            document.getElementById('save-name').value = '';
+            document.getElementById('save-host').value = '';
+            loadServers();
+        });
+    }
+
+    function deleteServer(index) {
+        if (!confirm(t('speedtest.delete_confirm'))) return;
+        fetch('/api/servers/' + index, {method: 'DELETE'}).then(function() { loadServers(); });
+    }
+
+    function toggleFavorite(index) {
+        fetch("/api/servers/" + index + "/favorite", {method: "POST"})
+        .then(function(r){return r.json();})
+        .then(function(d){ if(d.success) loadServers(); });
+    }
+
+    // === Toggle buttons ===
+    var currentDirection = 'download';
+    var currentProtocol = 'tcp';
+
+    function setDirection(btn) {
+        currentDirection = btn.getAttribute('data-val');
+        document.querySelectorAll('.toggle-group .toggle-btn[data-val=upload], .toggle-group .toggle-btn[data-val=download]').forEach(function(b) {
+            b.classList.toggle('active', b.getAttribute('data-val') === currentDirection);
+        });
+    }
+
+    function setProtocol(btn) {
+        currentProtocol = btn.getAttribute('data-val');
+        document.querySelectorAll('.toggle-group .toggle-btn[data-val=tcp], .toggle-group .toggle-btn[data-val=udp]').forEach(function(b) {
+            b.classList.toggle('active', b.getAttribute('data-val') === currentProtocol);
+        });
+    }
+
+    function setBandwidth(btn, val) {
+        document.getElementById('bandwidth').value = val;
+        document.querySelectorAll('.preset-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+    }
+
+    // === Lancement du test ===
+    function startTest() {
+        var server = document.getElementById('server').value.trim();
+        var port = parseInt(document.getElementById('port').value) || 5201;
+        var duration = parseInt(document.getElementById('duration').value) || 10;
+        var direction = currentDirection;
+        var protocol = currentProtocol;
+        var threads = parseInt(document.getElementById('threads').value) || 1;
+        var bandwidth = document.getElementById('bandwidth').value.trim() || '0';
+        var testName = document.getElementById('test-name').value.trim();
+
+        if (!server) { alert(t('speedtest.enter_server')); return; }
+
+        document.getElementById('log').value = '';
+        document.getElementById('results').style.display = 'none';
+        document.getElementById('progress').style.width = '0%';
+        document.getElementById('progress').classList.add('animated');
+        document.getElementById('btn-start').disabled = true;
+        document.getElementById('btn-stop').disabled = false;
+
+        var spinner = document.getElementById('test-spinner');
+        spinner.classList.add('active');
+        document.getElementById('spinner-msg').textContent = t('speedtest.testing');
+
+        var remaining = duration;
+        document.getElementById('spinner-timer').textContent = remaining + 's';
+        if (countdownTimer) clearInterval(countdownTimer);
+        countdownTimer = setInterval(function() {
+            remaining--;
+            if (remaining >= 0) {
+                document.getElementById('spinner-timer').textContent = remaining + 's';
+                var pct = Math.round(((duration - remaining) / duration) * 100);
+                document.getElementById('progress').style.width = pct + '%';
+            }
+        }, 1000);
+
+        log(t('speedtest.connecting', {server: server, port: port, proto: protocol.toUpperCase(), dir: direction}));
+
+        socket.emit('start_iperf3', {
+            server: server,
+            port: port,
+            duration: duration,
+            direction: direction,
+            protocol: protocol,
+            threads: threads,
+            bandwidth: bandwidth,
+            test_name: testName
+        });
+    }
+
+    function stopTest() {
+        socket.emit('stop_iperf3');
+        log(t('speedtest.stop_requested'));
+    }
+
+    socket.on('iperf3_started', function(msg) {
+        log(msg.message_key ? t(msg.message_key) : msg.message);
+    });
+
+    socket.on('iperf3_progress', function(data) {
+        log('[' + data.interval + '] ' + data.bitrate);
+    });
+
+    socket.on('iperf3_interval', function(data) {
+        log('[' + data.seconds + 's] ' + data.mbps + ' Mbps');
+        var pct = Math.round((data.seconds / parseInt(document.getElementById('duration').value || 10)) * 100);
+        if (pct > 100) pct = 100;
+        document.getElementById('progress').style.width = pct + '%';
+    });
+
+    socket.on('iperf3_complete', function(msg) {
+        if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+        document.getElementById('test-spinner').classList.remove('active');
+        document.getElementById('progress').style.width = '100%';
+        document.getElementById('progress').classList.remove('animated');
+        document.getElementById('btn-start').disabled = false;
+        document.getElementById('btn-stop').disabled = true;
+
+        var d = msg.data;
+        log('=== ' + t('speedtest.test_complete') + ' ===');
+        var mainBitrate = (d.direction === 'download') ? d.received_mbps : d.sent_mbps;
+        log(t('speedtest.avg_bitrate') + ': ' + mainBitrate + ' Mbps');
+        showToast(t('speedtest.test_done', {rate: mainBitrate}), 'success');
+
+        var grid = document.getElementById('stat-grid');
+        grid.innerHTML = '';
+        var sent = d.sent_mbps || 0;
+        var recv = d.received_mbps || 0;
+        var mainRate = (d.direction === 'download') ? recv : sent;
+        var transferMB = ((d.direction === 'download') ? d.received_bytes : d.sent_bytes) || 0;
+        transferMB = (transferMB / 1048576).toFixed(1) + ' MB';
+
+        var stats = [
+            {label: t('speedtest.avg_bitrate'), value: mainRate + ' Mbps'},
+            {label: t('speedtest.transfer'), value: transferMB},
+            {label: t('speedtest.duration_label'), value: d.duration + 's'},
+            {label: t('speedtest.protocol_label'), value: (d.protocol || 'tcp').toUpperCase()}
+        ];
+        if (d.jitter_ms !== undefined) stats.push({label: t('speedtest.jitter'), value: d.jitter_ms + ' ms'});
+        if (d.lost_percent !== undefined) stats.push({label: t('speedtest.packet_loss'), value: d.lost_percent + '%'});
+        if (d.retransmits !== undefined && d.retransmits > 0) stats.push({label: t('speedtest.retransmissions'), value: d.retransmits});
+
+        stats.forEach(function(s) {
+            var div = document.createElement('div');
+            div.className = 'stat-item';
+            div.innerHTML = '<div class="stat-value">' + s.value + '</div><div class="stat-label">' + s.label + '</div>';
+            grid.appendChild(div);
+        });
+
+        document.getElementById('results').style.display = 'block';
+    });
+
+    socket.on('iperf3_error', function(msg) {
+        if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+        document.getElementById('test-spinner').classList.remove('active');
+        document.getElementById('progress').classList.remove('animated');
+        document.getElementById('btn-start').disabled = false;
+        document.getElementById('btn-stop').disabled = true;
+        var errMsg = msg.message_key ? t(msg.message_key) : msg.message;
+        log('ERREUR: ' + errMsg);
+        showToast(t('speedtest.error', {msg: errMsg}), 'error');
+    });
+
+    // === SERVEURS PUBLICS ===
+    var publicServers = [];
+
+    var pubActiveRegion = '';
+
+    function loadPublicServers() {
+        fetch('/api/public-servers').then(function(r){return r.json()}).then(function(data) {
+            if (data.servers && data.servers.length > 0) {
+                publicServers = data.servers;
+                document.getElementById('pub-updated').textContent = t('speedtest.updated') + ': ' + (data.updated || '').substring(0, 10);
+                document.getElementById('pub-empty-msg').style.display = 'none';
+                buildPubTabs();
+            }
+        }).catch(function(){});
+    }
+
+    function buildPubTabs() {
+        var regions = [];
+        publicServers.forEach(function(s) {
+            var r = s.region || 'Autre';
+            if (regions.indexOf(r) === -1) regions.push(r);
+        });
+        if (regions.length === 0) return;
+        pubActiveRegion = '';
+
+        var tabsEl = document.getElementById('pub-region-tabs');
+        tabsEl.style.display = 'block';
+        var html = '<div class="tab-bar" style="margin-bottom:0;">';
+        regions.forEach(function(r) {
+            var count = publicServers.filter(function(s){return (s.region||'Autre')===r}).length;
+            html += '<button class="tab-btn" onclick="switchPubRegion(\'' + r + '\')">' + r + ' <span style="opacity:0.6;font-size:0.8em;">(' + count + ')</span></button>';
+        });
+        html += '</div>';
+        tabsEl.innerHTML = html;
+        document.getElementById('pub-server-list').style.display = 'none';
+    }
+
+    function switchPubRegion(region) {
+        var list = document.getElementById('pub-server-list');
+        if (pubActiveRegion === region) {
+            pubActiveRegion = '';
+            list.style.display = 'none';
+            var tabs = document.querySelectorAll('#pub-region-tabs .tab-btn');
+            tabs.forEach(function(t) { t.classList.remove('active'); });
+            return;
+        }
+        pubActiveRegion = region;
+        var tabs = document.querySelectorAll('#pub-region-tabs .tab-btn');
+        tabs.forEach(function(t) {
+            t.classList.toggle('active', t.textContent.indexOf(region) === 0);
+        });
+        list.style.display = 'block';
+        renderPublicServers();
+    }
+
+    function renderPublicServers() {
+        var container = document.getElementById('pub-server-list');
+        var servers = publicServers.filter(function(s) {
+            return (s.region || 'Autre') === pubActiveRegion;
+        });
+        if (servers.length === 0) {
+            container.innerHTML = '<span style="color:#556;">' + t('speedtest.no_region_servers') + '</span>';
+            return;
+        }
+        var html = '<div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;max-width:100%;overflow:hidden;">';
+        servers.forEach(function(s) {
+            html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0d1a2e;border:1px solid #1e2d45;border-radius:8px;min-width:0;">';
+            html += '<div onclick="selectPublicServer(\'' + s.hostname + '\',' + s.port + ')" style="flex:1;cursor:pointer;min-width:0;overflow:hidden;">';
+            html += '<div style="color:#e0e0e0;font-size:0.85em;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + s.hostname + '</div>';
+            html += '<div style="color:#556;font-size:0.7em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + s.location + ' &middot; ' + s.speed + ' &middot; :' + s.port + '</div>';
+            html += '</div>';
+            html += '<button onclick="addPublicToSaved(\'' + s.hostname + '\',' + s.port + ',\'' + s.location.replace(/'/g, "\\'") + '\')" ';
+            html += 'style="background:none;border:1px solid #1e3a5f;border-radius:6px;color:#00d4ff;cursor:pointer;padding:4px 8px;font-size:1em;min-width:36px;min-height:36px;flex-shrink:0;" ';
+            html += 'title="' + t('speedtest.add_to_saved') + '">+</button>';
+            html += '</div>';
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    function selectPublicServer(hostname, port) {
+        document.getElementById('server').value = hostname;
+        document.getElementById('port').value = port;
+        showToast(t('speedtest.selected', {host: hostname, port: port}), 'info');
+    }
+
+    function addPublicToSaved(hostname, port, location) {
+        fetch('/api/servers', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: location, host: hostname, port: port})
+        }).then(function(r){return r.json()}).then(function(d) {
+            if (d.error) { showToast(d.message_key ? t(d.message_key) : d.error, 'error'); return; }
+            showToast(t('speedtest.added_to_servers', {host: hostname}), 'success');
+            loadServers();
+        });
+    }
+
+    function updatePublicServers() {
+        var btn = document.getElementById('btn-pub-update');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" style="width:12px;height:12px;margin-right:4px;"></span> ...';
+        document.getElementById('pub-server-list').innerHTML =
+            '<div style="padding:8px;color:#77aacc;font-size:0.85em;">' +
+            '<span class="spinner" style="width:14px;height:14px;margin-right:6px;"></span> ' + t('speedtest.connectivity_check') +
+            '</div>';
+
+        fetch('/api/public-servers/update', {method: 'POST'})
+            .then(function(r){return r.json()})
+            .then(function(d) {
+                btn.disabled = false;
+                btn.innerHTML = '&#128260; ' + t('speedtest.update');
+                if (d.success) {
+                    showToast(d.message_key ? t(d.message_key) : d.message, 'success');
+                    loadPublicServers();
+                } else {
+                    var errMsg = d.message_key ? t(d.message_key) : d.message;
+                    showToast(errMsg, 'error');
+                    document.getElementById('pub-server-list').innerHTML =
+                        '<span style="color:#ef4444;font-size:0.85em;">&#10060; ' + errMsg + '</span>';
+                }
+            })
+            .catch(function() {
+                btn.disabled = false;
+                btn.innerHTML = '&#128260; ' + t('speedtest.update');
+                showToast(t('speedtest.network_error'), 'error');
+            });
+    }
+
+    // Charger au demarrage
+    loadServers();
+    loadPublicServers();
+
+    // Ouvrir QuickTest si demande via URL (?quicktest=1)
+    if (new URLSearchParams(location.search).get('quicktest') === '1') {
+        setTimeout(openQuickTest, 300);
+    }
+
+    // === QUICKTEST ===
+    var qtServers = [];
+
+    function openQuickTest() {
+        document.getElementById('quicktest-overlay').style.display = 'flex';
+        document.getElementById('qt-config').style.display = 'block';
+        document.getElementById('qt-progress').style.display = 'none';
+        // Charger les favoris
+        fetch('/api/servers').then(function(r){return r.json()}).then(function(servers){
+            qtServers = servers.filter(function(s){return s.favorite});
+            var chips = document.getElementById('qt-fav-chips');
+            if (qtServers.length === 0) {
+                chips.innerHTML = '<span style="color:#e74c3c;">\u26A0 ' + t('qt.no_favorites') + '</span>';
+            } else {
+                chips.innerHTML = qtServers.map(function(s){
+                    return '<span style="background:#3498db33;padding:4px 10px;border-radius:12px;margin:2px;display:inline-block;">\u2605 ' + (s.name||s.host) + '</span>';
+                }).join(' ');
+            }
+        });
+    }
+
+    function closeQuickTest() {
+        document.getElementById('quicktest-overlay').style.display = 'none';
+    }
+
+    function startQuickTest() {
+        if (qtServers.length === 0) { alert(t('qt.no_fav_alert')); return; }
+        var name = document.getElementById('qt-name').value || 'QuickTest';
+        var bitrate = document.getElementById('qt-bitrate').value || 100;
+
+        document.getElementById('qt-config').style.display = 'none';
+        document.getElementById('qt-progress').style.display = 'block';
+        document.getElementById('qt-results-list').innerHTML = '';
+
+        socket.emit('start_quicktest', {test_name: name, target_bitrate: bitrate});
+    }
+
+    function stopQuickTest() {
+        socket.emit('stop_quicktest');
+        closeQuickTest();
+    }
+
+    function closeCompletePopup() {
+        document.getElementById('qt-complete-overlay').style.display = 'none';
+    }
+
+    var qtResults = {};  // groupe par server_name
+    var qtStepErrors = [];
+
+    socket.on('quicktest_started', function(msg) {
+        document.getElementById('qt-step-counter').textContent = t('qt.step', {step: 0, total: msg.total_steps});
+        qtResults = {};
+        qtStepErrors = [];
+    });
+
+    socket.on('quicktest_step', function(msg) {
+        document.getElementById('qt-step-label').textContent = msg.label;
+        document.getElementById('qt-step-counter').textContent = t('qt.step', {step: msg.step, total: msg.total});
+
+        var pct = ((msg.step - 1) / msg.total) * 100;
+        if (msg.status === 'done') pct = (msg.step / msg.total) * 100;
+        document.getElementById('qt-progress-bar').style.width = pct + '%';
+
+        var attemptInfo = document.getElementById('qt-attempt-info');
+        if (msg.attempt > 1) {
+            attemptInfo.style.display = 'block';
+            attemptInfo.textContent = t('qt.attempt', {attempt: msg.attempt});
+        } else {
+            attemptInfo.style.display = 'none';
+        }
+
+        if (msg.status === 'done' && msg.result) {
+            var r = msg.result;
+            var srvName = r.server_name || r.server || 'Inconnu';
+            if (!qtResults[srvName]) qtResults[srvName] = { mtr: null, iperf: [] };
+            if (r.type === 'mtr') {
+                qtResults[srvName].mtr = r;
+            } else {
+                qtResults[srvName].iperf.push(r);
+            }
+        } else if (msg.status === 'error') {
+            qtStepErrors.push({ label: msg.label, attempt: msg.attempt, error: msg.error || '' });
+        }
+
+        renderQtResults();
+    });
+
+    function renderQtResults() {
+        var list = document.getElementById('qt-results-list');
+        var html = '';
+
+        for (var srv in qtResults) {
+            var data = qtResults[srv];
+            html += '<div style="margin-bottom:12px;border:1px solid #334155;border-radius:8px;overflow:hidden;">';
+            html += '<div style="background:#334155;padding:8px 12px;font-weight:700;font-size:14px;">\uD83D\uDDA5 ' + srv + '</div>';
+
+            // MTR
+            if (data.mtr) {
+                var m = data.mtr;
+                var lossColor = m.last_hop_loss > 5 ? '#ef4444' : (m.last_hop_loss > 0 ? '#f59e0b' : '#10b981');
+                html += '<div style="padding:8px 12px;border-bottom:1px solid #1e293b;background:#0f172a;">';
+                html += '<div style="font-weight:600;color:#8b5cf6;margin-bottom:4px;">\uD83D\uDD00 MTR \u2014 ' + m.hops + ' hops, ' + (m.cycles || 60) + ' cycles</div>';
+                html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:12px;">';
+                html += '<span>' + t('hist.destination_label') + ': <strong>' + (m.dst || '-') + '</strong></span>';
+                html += '<span>' + t('hist.latency') + ': <strong>' + m.last_hop_avg.toFixed(1) + ' ms</strong></span>';
+                html += '<span>' + t('hist.loss') + ': <strong style="color:' + lossColor + ';">' + m.last_hop_loss.toFixed(1) + '%</strong></span>';
+                html += '</div>';
+
+                // Top 3 hops avec perte ou latence elevee
+                if (m.hubs && m.hubs.length > 0) {
+                    var problems = m.hubs.filter(function(h) { return h.loss > 0 || h.spike; });
+                    if (problems.length > 0) {
+                        html += '<div style="margin-top:4px;font-size:11px;color:#f59e0b;">';
+                        html += '\u26A0 ' + t('hist.problematic_nodes') + ': ';
+                        problems.slice(0, 3).forEach(function(h) {
+                            html += '<span style="margin-right:8px;">Hop ' + h.hop + ' (' + (h.host || h.ip || '???') + ') ';
+                            if (h.loss > 0) html += t('hist.loss').toLowerCase() + ':' + h.loss.toFixed(1) + '% ';
+                            if (h.spike) html += t('hist.latency').toLowerCase() + ':' + h.avg.toFixed(1) + 'ms';
+                            html += '</span>';
+                        });
+                        html += '</div>';
+                    }
+                }
+                html += '</div>';
+            }
+
+            // iPerf3 results
+            data.iperf.forEach(function(r) {
+                var icon = r.protocol === 'udp' ? '\uD83D\uDCE1' : '\uD83C\uDF10';
+                var protoLabel = r.label || (r.protocol.toUpperCase());
+                var rateColor = '#10b981';
+                html += '<div style="padding:8px 12px;border-bottom:1px solid #1e293b;background:#0f172a;">';
+                html += '<div style="font-weight:600;color:#3b82f6;margin-bottom:4px;">' + icon + ' ' + protoLabel + '</div>';
+                html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;">';
+                html += '<span>' + t('hist.sent_short') + ': <strong style="color:' + rateColor + ';">' + r.sent_mbps + ' Mbps</strong></span>';
+                html += '<span>' + t('hist.received_short') + ': <strong style="color:' + rateColor + ';">' + r.received_mbps + ' Mbps</strong></span>';
+
+                if (r.protocol === 'udp') {
+                    var jitterColor = r.jitter_ms > 5 ? '#ef4444' : (r.jitter_ms > 1 ? '#f59e0b' : '#10b981');
+                    var lossIperfColor = r.lost_percent > 1 ? '#ef4444' : (r.lost_percent > 0 ? '#f59e0b' : '#10b981');
+                    html += '<span>' + t('speedtest.jitter') + ': <strong style="color:' + jitterColor + ';">' + r.jitter_ms + ' ms</strong></span>';
+                    html += '<span>' + t('hist.loss') + ': <strong style="color:' + lossIperfColor + ';">' + r.lost_percent + '%</strong>';
+                    if (r.lost_packets !== undefined && r.total_packets !== undefined) {
+                        html += ' (' + r.lost_packets + '/' + r.total_packets + ')';
+                    }
+                    html += '</span>';
+                } else {
+                    if (r.retransmits !== undefined) {
+                        var retColor = r.retransmits > 100 ? '#ef4444' : (r.retransmits > 10 ? '#f59e0b' : '#10b981');
+                        html += '<span>' + t('hist.retransmissions') + ': <strong style="color:' + retColor + ';">' + r.retransmits + '</strong></span>';
+                    }
+                    html += '<span>Streams: <strong>' + (r.streams || 1) + '</strong></span>';
+                }
+
+                // Volumes transferes
+                var sentMB = (r.sent_bytes / (1024*1024)).toFixed(1);
+                var recvMB = (r.received_bytes / (1024*1024)).toFixed(1);
+                html += '<span>' + t('hist.sent_volume') + ': ' + sentMB + ' Mo</span>';
+                html += '<span>' + t('hist.recv_volume') + ': ' + recvMB + ' Mo</span>';
+
+                html += '</div></div>';
+            });
+
+            html += '</div>';
+        }
+
+        // Erreurs
+        qtStepErrors.forEach(function(e) {
+            html += '<div style="padding:6px 12px;color:#ef4444;font-size:12px;border:1px solid #7f1d1d;border-radius:6px;margin-bottom:4px;">';
+            html += '\u274C ' + e.label + (e.error ? ' \u2014 ' + e.error : '');
+            html += '</div>';
+        });
+
+        list.innerHTML = html;
+    }
+
+    socket.on('quicktest_countdown', function(msg) {
+        var txt = (typeof msg.remaining === 'string') ? msg.remaining : msg.remaining + 's';
+        document.getElementById('qt-countdown').textContent = txt;
+    });
+
+    socket.on('quicktest_complete', function(msg) {
+        document.getElementById('quicktest-overlay').style.display = 'none';
+        document.getElementById('qt-complete-overlay').style.display = 'flex';
+        document.getElementById('qt-complete-msg').textContent = t('qt.complete_msg', {name: msg.test_name, steps: msg.total_steps});
+    });
+
+    socket.on('quicktest_stopped', function() {
+        closeQuickTest();
+    });
+
+</script>
+
+<!-- QuickTest Modal -->
+<div id="quicktest-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1000;justify-content:center;align-items:center;">
+    <div style="background:#1e293b;border-radius:16px;padding:30px;max-width:600px;width:95%;color:#fff;position:relative;">
+        <h3 style="margin-top:0;color:#3498db;">\u26A1 <span data-i18n="qt.title">QuickTest</span></h3>
+        <div id="qt-config">
+            <div style="margin-bottom:15px;">
+                <label style="display:block;margin-bottom:5px;font-weight:600;" data-i18n="qt.test_name">Nom du test</label>
+                <input type="text" id="qt-name" data-i18n-placeholder="qt.test_name_placeholder" placeholder="Ex: Site Paris - Fibre 1G" style="width:100%;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="display:block;margin-bottom:5px;font-weight:600;" data-i18n="qt.target_bitrate">Debit cible (Mbps)</label>
+                <input type="number" id="qt-bitrate" value="100" min="1" style="width:100%;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;box-sizing:border-box;">
+            </div>
+            <div id="qt-fav-list" style="margin-bottom:15px;">
+                <label style="display:block;margin-bottom:5px;font-weight:600;" data-i18n="qt.fav_servers">Serveurs favoris utilises :</label>
+                <div id="qt-fav-chips" style="font-size:14px;color:#94a3b8;"></div>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="startQuickTest()" style="flex:1;padding:12px;background:#3498db;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">\uD83D\uDE80 <span data-i18n="qt.launch">Lancer</span></button>
+                <button onclick="closeQuickTest()" style="flex:1;padding:12px;background:#475569;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer;" data-i18n="qt.cancel">Annuler</button>
+            </div>
+        </div>
+        <div id="qt-progress" style="display:none;">
+            <div style="text-align:center;margin-bottom:15px;">
+                <div id="qt-step-label" style="font-size:18px;font-weight:600;margin-bottom:8px;" data-i18n="qt.init">Initialisation...</div>
+                <div id="qt-step-counter" style="font-size:14px;color:#94a3b8;margin-bottom:10px;"></div>
+                <div id="qt-attempt-info" style="font-size:12px;color:#f59e0b;margin-bottom:10px;display:none;"></div>
+            </div>
+            <div style="background:#0f172a;border-radius:8px;height:24px;overflow:hidden;margin-bottom:10px;">
+                <div id="qt-progress-bar" style="height:100%;background:linear-gradient(90deg,#3498db,#3b82f6);width:0%;transition:width 0.5s;border-radius:8px;"></div>
+            </div>
+            <div id="qt-countdown" style="text-align:center;font-size:32px;font-weight:700;color:#3498db;margin:15px 0;">--</div>
+            <div id="qt-results-list" style="max-height:400px;overflow-y:auto;font-size:13px;"></div>
+            <button onclick="stopQuickTest()" id="qt-btn-stop" style="width:100%;padding:10px;background:#e74c3c;color:#fff;border:none;border-radius:8px;margin-top:10px;cursor:pointer;">\u23F9 <span data-i18n="qt.stop_btn">Arreter</span></button>
+        </div>
+    </div>
+</div>
+
+<!-- QuickTest Complete Popup -->
+<div id="qt-complete-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1001;justify-content:center;align-items:center;">
+    <div style="background:#1e293b;border-radius:16px;padding:40px;max-width:400px;width:90%;color:#fff;text-align:center;">
+        <div style="font-size:48px;margin-bottom:15px;">\u2705</div>
+        <h3 style="color:#10b981;margin-bottom:10px;" data-i18n="qt.complete_title">QuickTest Termine !</h3>
+        <p id="qt-complete-msg" style="color:#94a3b8;margin-bottom:20px;"></p>
+        <div style="display:flex;gap:10px;">
+            <a href="/history?tab=quicktest" style="flex:1;padding:12px;background:#3b82f6;color:#fff;border:none;border-radius:8px;text-decoration:none;text-align:center;font-weight:600;">\uD83D\uDCCA <span data-i18n="qt.view_history">Voir Historique</span></a>
+            <button onclick="closeCompletePopup()" style="flex:1;padding:12px;background:#475569;color:#fff;border:none;border-radius:8px;cursor:pointer;" data-i18n="qt.close">Fermer</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
