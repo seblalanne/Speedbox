@@ -8,7 +8,7 @@
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-5-red.svg)](https://www.raspberrypi.com/)
 [![FR/EN](https://img.shields.io/badge/Lang-FR%20%7C%20EN-cyan.svg)](#)
 
-![SpeedBox Screenshot](docs/screenshots/placeholder.png)
+![SpeedBox - Accueil](docs/screenshots/home.png)
 
 ---
 
@@ -99,7 +99,20 @@ Flask + Flask-SocketIO (gevent)
 
 ## Captures d'ecran / Screenshots
 
-> *A venir / Coming soon*
+### Accueil / Home
+![Accueil](docs/screenshots/home.png)
+
+### Test de debit / Speed Test
+![SpeedTest](docs/screenshots/speedtest.png)
+
+### Diagnostic
+![Diagnostic](docs/screenshots/diagnostic.png)
+
+### Configuration reseau / Network
+![Network](docs/screenshots/network.png)
+
+### Historique / History
+![History](docs/screenshots/history.png)
 
 ---
 
