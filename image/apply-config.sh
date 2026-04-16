@@ -31,8 +31,7 @@ echo "============================================"
 
 echo "[1/2] Application des paramètres dans dietpi.txt..."
 
-sed -i 's/^AUTO_SETUP_AUTOMATED=.*/AUTO_SETUP_AUTOMATED=1/'             "$BOOT_DIR/dietpi.txt"
-sed -i 's/^AUTO_SETUP_CUSTOM_SCRIPT_EXEC=.*/AUTO_SETUP_CUSTOM_SCRIPT_EXEC=1/' "$BOOT_DIR/dietpi.txt"
+sed -i 's/^AUTO_SETUP_AUTOMATED=.*/AUTO_SETUP_AUTOMATED=1/' "$BOOT_DIR/dietpi.txt"
 
 echo "  OK"
 
