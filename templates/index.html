@@ -86,7 +86,8 @@
                 document.getElementById('eth0-status').textContent = data.eth0.status;
                 document.getElementById('eth0-ip').textContent = data.eth0.ip;
                 document.getElementById('eth0-speed').textContent = data.eth0.speed;
-                document.getElementById('wlan0-status').textContent = data.wlan0.status;
+                var wlanStatus = data.wlan0.status === 'NOT_FOUND' ? t('index.not_detected') : data.wlan0.status;
+                document.getElementById('wlan0-status').textContent = wlanStatus;
                 document.getElementById('wlan0-ip').textContent = data.wlan0.ip;
                 document.getElementById('hostname').textContent = data.hostname;
                 document.getElementById('uptime').textContent = data.uptime;

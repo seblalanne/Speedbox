@@ -155,6 +155,8 @@ def get_current_ip(interface='eth0'):
 
 def get_interface_status(interface='eth0'):
     try:
+        if not os.path.exists(f'/sys/class/net/{interface}'):
+            return 'NOT_FOUND'
         result = subprocess.run(['ip', 'link', 'show', interface],
                                 capture_output=True, text=True, timeout=5)
         return 'UP' if 'state UP' in result.stdout else 'DOWN'
