@@ -122,6 +122,28 @@ def parse_ping_summary(output):
 # =============================================================================
 # FONCTIONS UTILITAIRES
 # =============================================================================
+def detect_eth_interface():
+    """Retourne le nom de l'interface filaire principale.
+    Priorité : variable ETH_INTERFACE > eth0 si existant > interface avec route par défaut.
+    """
+    override = os.environ.get('ETH_INTERFACE')
+    if override:
+        return override
+    try:
+        ifaces = os.listdir('/sys/class/net')
+        if 'eth0' in ifaces:
+            return 'eth0'
+        result = subprocess.run(['ip', 'route', 'show', 'default'],
+                                capture_output=True, text=True, timeout=5)
+        match = re.search(r'dev (\S+)', result.stdout)
+        if match and match.group(1) in ifaces:
+            return match.group(1)
+    except Exception:
+        pass
+    return 'eth0'
+
+ETH_IFACE = detect_eth_interface()
+
 def get_current_ip(interface='eth0'):
     try:
         result = subprocess.run(['ip', '-4', 'addr', 'show', interface],
@@ -133,6 +155,8 @@ def get_current_ip(interface='eth0'):
 
 def get_interface_status(interface='eth0'):
     try:
+        if not os.path.exists(f'/sys/class/net/{interface}'):
+            return 'NOT_FOUND'
         result = subprocess.run(['ip', 'link', 'show', interface],
                                 capture_output=True, text=True, timeout=5)
         return 'UP' if 'state UP' in result.stdout else 'DOWN'
@@ -336,17 +360,18 @@ def api_reboot():
 
 @app.route('/api/status')
 def api_status():
-    eth0_ip = get_current_ip('eth0')
-    ip_only = eth0_ip.split('/')[0] if '/' in eth0_ip else eth0_ip
-    mask = eth0_ip.split('/')[1] if '/' in eth0_ip else 'N/A'
+    eth_ip = get_current_ip(ETH_IFACE)
+    ip_only = eth_ip.split('/')[0] if '/' in eth_ip else eth_ip
+    mask = eth_ip.split('/')[1] if '/' in eth_ip else 'N/A'
     wlan0_ip = get_current_ip('wlan0')
     return jsonify({
         'eth0': {
-            'status': get_interface_status('eth0'),
+            'interface': ETH_IFACE,
+            'status': get_interface_status(ETH_IFACE),
             'ip': ip_only,
             'mask': '/' + mask if mask != 'N/A' else 'N/A',
-            'mac': get_mac_address('eth0'),
-            'speed': get_link_speed('eth0')
+            'mac': get_mac_address(ETH_IFACE),
+            'speed': get_link_speed(ETH_IFACE)
         },
         'wlan0': {
             'status': get_interface_status('wlan0'),

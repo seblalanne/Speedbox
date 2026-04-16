@@ -1,0 +1,20 @@
+services:
+  speedbox:
+    image: ghcr.io/dashand/speedbox:latest
+    container_name: speedbox
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    volumes:
+      - speedbox-config:/opt/speedbox/config
+      - speedbox-results:/opt/speedbox/results
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/status')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  speedbox-config:
+  speedbox-results:

@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dnsutils \
     iproute2 \
     net-tools \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/speedbox
@@ -40,6 +41,9 @@ COPY templates/ templates/
 
 # Creer les repertoires de donnees
 RUN mkdir -p config results
+
+# Volumes pour la persistance des donnees
+VOLUME ["/opt/speedbox/config", "/opt/speedbox/results"]
 
 # Port par defaut
 EXPOSE 5000
