@@ -24,7 +24,7 @@ var TRANSLATIONS = {
     'index.wifi_ap': 'AP Wifi',
     'index.system': 'Systeme',
     'index.status': 'Statut',
-    'index.not_detected': 'Non detecte',
+    'index.not_detected': 'Non détecté',
     'index.ip': 'IP',
     'index.speed': 'Vitesse',
     'index.hostname': 'Hostname',
