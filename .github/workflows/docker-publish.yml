@@ -69,14 +69,16 @@ jobs:
 
       - name: Update Docker Hub description
         if: github.event_name != 'pull_request'
+        continue-on-error: true
         run: |
           TOKEN=$(curl -sf -X POST \
             -H "Content-Type: application/json" \
-            -d '{"username":"seblalanne","password":"${{ secrets.DOCKERHUB_TOKEN }}"}' \
+            -d '{"username":"seblalanne","password":"${{ secrets.DOCKERHUB_PASSWORD }}"}' \
             https://hub.docker.com/v2/users/login/ | jq -r .token)
           curl -sf -X PATCH \
             -H "Authorization: JWT ${TOKEN}" \
             -H "Content-Type: application/json" \
             -d "{\"full_description\": $(jq -Rs . < README.docker.md)}" \
-            https://hub.docker.com/v2/repositories/seblalanne/speedbox/
-          echo "Docker Hub description updated"
+            https://hub.docker.com/v2/repositories/seblalanne/speedbox/ \
+            && echo "Docker Hub description updated" \
+            || echo "::warning::Docker Hub description update failed (non-blocking)"
