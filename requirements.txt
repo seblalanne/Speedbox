@@ -3,3 +3,4 @@ Flask-SocketIO==5.6.1
 gevent==25.9.1
 paramiko==4.0.0
 requests==2.33.1
+cryptography==46.0.7

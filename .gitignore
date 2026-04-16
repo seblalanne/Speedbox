@@ -6,6 +6,7 @@ venv/
 
 # Secrets and user config
 config/.secret_key
+config/.fernet_key
 config/ftp_config.json
 
 # User test results

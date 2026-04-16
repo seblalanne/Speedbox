@@ -14,6 +14,7 @@ import os
 import re
 import secrets
 import base64
+from cryptography.fernet import Fernet
 import shutil
 from datetime import datetime
 import socket
@@ -40,7 +41,19 @@ else:
     os.chmod(SECRET_FILE, 0o600)
     app.config['SECRET_KEY'] = _key
 
-socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins='*')
+# Cle Fernet pour chiffrer les mots de passe FTP au repos
+FERNET_KEY_FILE = os.path.join(CONFIG_DIR, '.fernet_key')
+if os.path.exists(FERNET_KEY_FILE):
+    with open(FERNET_KEY_FILE, 'rb') as _f:
+        _fernet_key = _f.read().strip()
+else:
+    _fernet_key = Fernet.generate_key()
+    with open(FERNET_KEY_FILE, 'wb') as _f:
+        _f.write(_fernet_key)
+    os.chmod(FERNET_KEY_FILE, 0o600)
+_fernet = Fernet(_fernet_key)
+
+socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins=['http://localhost:5000', 'http://127.0.0.1:5000', 'http://192.168.0.100:5000'])
 
 quicktest_processes = {}
 iperf3_processes = {}
@@ -925,7 +938,7 @@ def ftp_config():
             'host': data.get('host', ''),
             'port': data.get('port', 21),
             'username': data.get('username', ''),
-            'password_b64': base64.b64encode(raw_pass.encode()).decode() if raw_pass else '',
+            'password_enc': _fernet.encrypt(raw_pass.encode()).decode() if raw_pass else '',
             'remote_path': data.get('remote_path', '/'),
             'tls': data.get('tls', False),
             'save_password': data.get('save_password', True)
@@ -940,7 +953,11 @@ def ftp_config():
             with open(FTP_CONFIG_FILE, 'r') as f:
                 cfg = json.load(f)
             # Decoder le mot de passe pour le renvoyer au frontend
-            if 'password_b64' in cfg:
+            if 'password_enc' in cfg:
+                cfg['password'] = _fernet.decrypt(cfg['password_enc'].encode()).decode() if cfg['password_enc'] else ''
+                del cfg['password_enc']
+            elif 'password_b64' in cfg:
+                # Migration: anciens mots de passe en base64
                 cfg['password'] = base64.b64decode(cfg['password_b64']).decode()
                 del cfg['password_b64']
             return jsonify(cfg)
@@ -963,7 +980,7 @@ def ftp_test():
     try:
         if proto in ('sftp', 'scp'):
             client = paramiko.SSHClient()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            client.set_missing_host_key_policy(paramiko.WarningPolicy())
             client.connect(host, port=port, username=user, password=passwd, timeout=10, banner_timeout=10, auth_timeout=10)
             sftp = client.open_sftp()
             try:
@@ -1048,7 +1065,7 @@ def ftp_send():
     try:
         if proto in ('sftp', 'scp'):
             client = paramiko.SSHClient()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            client.set_missing_host_key_policy(paramiko.WarningPolicy())
             client.connect(host, port=port, username=user, password=passwd, timeout=10, banner_timeout=10, auth_timeout=10)
             sftp = client.open_sftp()
             sftp.putfo(file_obj, remote_file)
