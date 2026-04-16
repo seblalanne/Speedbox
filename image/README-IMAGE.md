@@ -4,7 +4,7 @@ Ce dossier contient les outils pour déployer SpeedBox sur un Raspberry Pi via u
 
 ## Méthode 1 : Automation DietPi (recommandée)
 
-Cette méthode configure une image DietPi vierge pour installer SpeedBox automatiquement au premier démarrage. Aucune modification manuelle de fichiers de configuration n'est nécessaire.
+Cette méthode configure une image DietPi vierge pour installer SpeedBox automatiquement au premier démarrage.
 
 ### Prérequis
 
@@ -14,22 +14,29 @@ Cette méthode configure une image DietPi vierge pour installer SpeedBox automat
 
 ### Étapes
 
-1. **Flasher l'image DietPi** sur la carte SD avec balenaEtcher ou `dd`
+**1. Flasher l'image DietPi** sur la carte SD avec balenaEtcher ou `dd`
 
-2. **Monter la partition boot** de la carte SD sur votre PC (elle s'appelle `bootfs`)
+**2. Ouvrir la partition boot** de la carte SD (appelée `bootfs`) — accessible depuis Windows, Mac ou Linux
 
-3. **Appliquer la configuration SpeedBox en une commande :**
-   ```bash
-   bash image/apply-config.sh /media/user/bootfs
+**3. Copier `Automation_Custom_Script.sh`** à la racine de la partition boot
+
+**4. Modifier `dietpi.txt`** avec un éditeur de texte (Notepad sur Windows) — une seule ligne à changer :
    ```
-   > Ce script modifie automatiquement `dietpi.txt` et copie le script d'installation.
-   > Mot de passe par défaut : `SpeedBox!` — à changer après installation avec `passwd`.
+   AUTO_SETUP_AUTOMATED=1
+   ```
 
-4. **Éjecter la carte SD**, l'insérer dans le Raspberry Pi et **connecter l'Ethernet**
+**5. Éjecter la carte SD**, l'insérer dans le Raspberry Pi et **connecter l'Ethernet**
 
-5. **Démarrer le Pi** et attendre ~5-10 minutes
+**6. Démarrer le Pi** et attendre ~5-10 minutes
 
 SpeedBox est accessible sur `http://<IP-du-Pi>:5000`
+
+> **Sur Linux/Mac**, vous pouvez utiliser `apply-config.sh` pour automatiser les étapes 3 et 4 :
+> ```bash
+> bash apply-config.sh /media/user/bootfs
+> ```
+
+> **Mot de passe SSH par défaut** : `dietpi` — à changer après installation avec `passwd`
 
 ---
 
