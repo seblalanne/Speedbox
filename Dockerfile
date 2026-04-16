@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dnsutils \
     iproute2 \
     net-tools \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/speedbox
