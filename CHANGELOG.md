@@ -6,6 +6,26 @@ Toutes les modifications notables de SpeedBox sont documentees ici.
 
 ---
 
+## v1.2.0 — Test iperf3 bidirectionnel (2026-05-06)
+
+### Nouveau / New
+
+**Test iperf3 bidirectionnel / Bidirectional iperf3 test**
+- Nouveau mode "Bidir" dans le selecteur de direction du SpeedTest (utilise `iperf3 --bidir`)
+- Test simultane upload + download en une seule execution
+- Affichage des resultats adapte : debit montant + descendant + volumes emis/recus
+- Logs d'intervalles avec fleches directionnelles (↑/↓) en mode bidir
+- Icone de direction ⇅ sur les cartes mobiles dans l'historique
+- Support optionnel du parametre `direction` dans les etapes iperf3 du QuickTest (retrocompatible, defaut "upload")
+
+### Ameliorations / Improvements
+
+- Parsing UDP ameliore : utilise `sum_sent` / `sum_received` quand disponibles (necessaire pour le mode bidir)
+- Grille de resultats enrichie : affiche toujours les 4 metriques (debit montant, descendant, volume emis, recu)
+- i18n : 5 nouvelles cles en FR et EN (`avg_upload`, `avg_download`, `sent_volume`, `recv_volume`, `bidir_done`)
+
+---
+
 ## v1.1.0 — DietPi Image + Docker (2026-04-16)
 
 ### Nouveau / New

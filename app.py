@@ -647,7 +647,9 @@ def handle_iperf3(data):
 
     cmd = ['iperf3', '-c', server, '-p', str(port), '-t', str(duration), '-J', '--forceflush']
 
-    if direction == 'download':
+    if direction == 'bidir':
+        cmd.append('--bidir')
+    elif direction == 'download':
         cmd.append('-R')
     if bandwidth and bandwidth != '0' and protocol == 'tcp':
         cmd.extend(['-b', bandwidth])
@@ -689,7 +691,8 @@ def handle_iperf3(data):
                 'seconds': round(summary.get('end', 0), 1),
                 'mbps': round(summary.get('bits_per_second', 0) / 1000000, 2),
                 'bytes': summary.get('bytes', 0),
-                'retransmits': summary.get('retransmits', 0)
+                'retransmits': summary.get('retransmits', 0),
+                'sender': summary.get('sender', True)
             }
             if protocol == 'udp':
                 interval_data['jitter_ms'] = round(summary.get('jitter_ms', 0), 3)
@@ -706,19 +709,21 @@ def handle_iperf3(data):
         received = end_data.get('sum_received', {})
 
         if protocol == 'udp':
+            udp_sent = end_data.get('sum_sent', {})
+            udp_recv = end_data.get('sum_received', {})
             udp_sum = end_data.get('sum', {})
             result = {
                 'server': server, 'port': port, 'duration': duration,
                 'direction': direction, 'protocol': protocol,
-                'sent_mbps': round(udp_sum.get('bits_per_second', 0) / 1000000, 2),
-                'received_mbps': round(udp_sum.get('bits_per_second', 0) / 1000000, 2),
-                'sent_bytes': udp_sum.get('bytes', 0),
-                'received_bytes': udp_sum.get('bytes', 0),
+                'sent_mbps': round(udp_sent.get('bits_per_second', udp_sum.get('bits_per_second', 0)) / 1000000, 2),
+                'received_mbps': round(udp_recv.get('bits_per_second', udp_sum.get('bits_per_second', 0)) / 1000000, 2),
+                'sent_bytes': udp_sent.get('bytes', udp_sum.get('bytes', 0)),
+                'received_bytes': udp_recv.get('bytes', udp_sum.get('bytes', 0)),
                 'retransmits': 0,
-                'jitter_ms': round(udp_sum.get('jitter_ms', 0), 3),
-                'lost_packets': udp_sum.get('lost_packets', 0),
-                'total_packets': udp_sum.get('packets', 0),
-                'lost_percent': round((udp_sum.get('lost_packets', 0) / max(udp_sum.get('packets', 1), 1)) * 100, 3)
+                'jitter_ms': round(udp_sum.get('jitter_ms', udp_recv.get('jitter_ms', 0)), 3),
+                'lost_packets': udp_sum.get('lost_packets', udp_recv.get('lost_packets', 0)),
+                'total_packets': udp_sum.get('packets', udp_recv.get('packets', 0)),
+                'lost_percent': round((udp_sum.get('lost_packets', udp_recv.get('lost_packets', 0)) / max(udp_sum.get('packets', udp_recv.get('packets', 1)), 1)) * 100, 3)
             }
         else:
             result = {
@@ -1277,6 +1282,10 @@ def handle_quicktest(data):
                     port = srv.get('port', 5201)
                     cmd = ['iperf3', '-c', host, '-p', str(port), '-t', str(step['duration']), '-J']
 
+                    if step.get('direction') == 'bidir':
+                        cmd.append('--bidir')
+                    elif step.get('direction') == 'download':
+                        cmd.append('-R')
                     if step['protocol'] == 'udp':
                         cmd += ['-u', '-b', step['bitrate']]
                     else:
@@ -1328,7 +1337,7 @@ def handle_quicktest(data):
                         'server': host,
                         'port': port,
                         'server_name': step['server_name'],
-                        'direction': 'upload',
+                        'direction': step.get('direction', 'upload'),
                         'test_name': test_name,
                         'quicktest': True,
                         'quicktest_id': quicktest_id,
@@ -1338,15 +1347,17 @@ def handle_quicktest(data):
                     }
 
                     if step['protocol'] == 'udp':
+                        ss_sent = end.get('sum_sent', {})
+                        ss_recv = end.get('sum_received', {})
                         ss = end.get('sum', {})
-                        test_result['sent_mbps'] = round(ss.get('bits_per_second', 0) / 1e6, 2)
-                        test_result['received_mbps'] = test_result['sent_mbps']
-                        test_result['jitter_ms'] = round(ss.get('jitter_ms', 0), 3)
-                        test_result['lost_percent'] = round(ss.get('lost_percent', 0), 3)
-                        test_result['lost_packets'] = ss.get('lost_packets', 0)
-                        test_result['total_packets'] = ss.get('packets', 0)
-                        test_result['sent_bytes'] = ss.get('bytes', 0)
-                        test_result['received_bytes'] = ss.get('bytes', 0)
+                        test_result['sent_mbps'] = round(ss_sent.get('bits_per_second', ss.get('bits_per_second', 0)) / 1e6, 2)
+                        test_result['received_mbps'] = round(ss_recv.get('bits_per_second', ss.get('bits_per_second', 0)) / 1e6, 2)
+                        test_result['jitter_ms'] = round(ss.get('jitter_ms', ss_recv.get('jitter_ms', 0)), 3)
+                        test_result['lost_percent'] = round(ss.get('lost_percent', ss_recv.get('lost_percent', 0)), 3)
+                        test_result['lost_packets'] = ss.get('lost_packets', ss_recv.get('lost_packets', 0))
+                        test_result['total_packets'] = ss.get('packets', ss_recv.get('packets', 0))
+                        test_result['sent_bytes'] = ss_sent.get('bytes', ss.get('bytes', 0))
+                        test_result['received_bytes'] = ss_recv.get('bytes', ss.get('bytes', 0))
                     else:
                         s_sent = end.get('sum_sent', {})
                         s_recv = end.get('sum_received', {})
