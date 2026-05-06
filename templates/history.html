@@ -279,7 +279,7 @@ function renderIperf3(items) {
         recv.push(parseFloat(item.received_mbps)||0);
 
         // Mobile card
-        var dir = item.direction === 'download' ? '⬇' : '⬆';
+        var dir = item.direction === 'bidir' ? '⇅' : (item.direction === 'download' ? '⬇' : '⬆');
         var ch = '<div class="hist-card">';
         ch += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">';
         ch += '<span class="hist-card-title" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">' + dir + ' ' + proto.toUpperCase() + ' — ' + escapeHtml(item.server||'-') + '</span>';

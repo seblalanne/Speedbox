@@ -135,6 +135,7 @@
                 <div class="toggle-group">
                     <button type="button" class="toggle-btn" data-val="upload" onclick="setDirection(this)" id="dir-upload">&#8593; Upload</button>
                     <button type="button" class="toggle-btn active" data-val="download" onclick="setDirection(this)" id="dir-download">&#8595; Download</button>
+                    <button type="button" class="toggle-btn" data-val="bidir" onclick="setDirection(this)" id="dir-bidir">&#8645; Bidir</button>
                 </div>
             </div>
 
@@ -298,7 +299,7 @@
 
     function setDirection(btn) {
         currentDirection = btn.getAttribute('data-val');
-        document.querySelectorAll('.toggle-group .toggle-btn[data-val=upload], .toggle-group .toggle-btn[data-val=download]').forEach(function(b) {
+        document.querySelectorAll('.toggle-group .toggle-btn[data-val=upload], .toggle-group .toggle-btn[data-val=download], .toggle-group .toggle-btn[data-val=bidir]').forEach(function(b) {
             b.classList.toggle('active', b.getAttribute('data-val') === currentDirection);
         });
     }
@@ -380,7 +381,8 @@
     });
 
     socket.on('iperf3_interval', function(data) {
-        log('[' + data.seconds + 's] ' + data.mbps + ' Mbps');
+        var dirLabel = (data.sender === false) ? ' ↓' : ((data.sender === true) ? ' ↑' : '');
+        log('[' + data.seconds + 's]' + dirLabel + ' ' + data.mbps + ' Mbps');
         var pct = Math.round((data.seconds / parseInt(document.getElementById('duration').value || 10)) * 100);
         if (pct > 100) pct = 100;
         document.getElementById('progress').style.width = pct + '%';
@@ -396,21 +398,28 @@
 
         var d = msg.data;
         log('=== ' + t('speedtest.test_complete') + ' ===');
-        var mainBitrate = (d.direction === 'download') ? d.received_mbps : d.sent_mbps;
-        log(t('speedtest.avg_bitrate') + ': ' + mainBitrate + ' Mbps');
-        showToast(t('speedtest.test_done', {rate: mainBitrate}), 'success');
+        if (d.direction === 'bidir') {
+            log(t('speedtest.avg_upload') + ': ' + d.sent_mbps + ' Mbps');
+            log(t('speedtest.avg_download') + ': ' + d.received_mbps + ' Mbps');
+            showToast(t('speedtest.bidir_done', {up: d.sent_mbps, down: d.received_mbps}), 'success');
+        } else {
+            var mainBitrate = (d.direction === 'download') ? d.received_mbps : d.sent_mbps;
+            log(t('speedtest.avg_bitrate') + ': ' + mainBitrate + ' Mbps');
+            showToast(t('speedtest.test_done', {rate: mainBitrate}), 'success');
+        }
 
         var grid = document.getElementById('stat-grid');
         grid.innerHTML = '';
         var sent = d.sent_mbps || 0;
         var recv = d.received_mbps || 0;
-        var mainRate = (d.direction === 'download') ? recv : sent;
-        var transferMB = ((d.direction === 'download') ? d.received_bytes : d.sent_bytes) || 0;
-        transferMB = (transferMB / 1048576).toFixed(1) + ' MB';
+        var sentMB = ((d.sent_bytes || 0) / 1048576).toFixed(1) + ' MB';
+        var recvMB = ((d.received_bytes || 0) / 1048576).toFixed(1) + ' MB';
 
         var stats = [
-            {label: t('speedtest.avg_bitrate'), value: mainRate + ' Mbps'},
-            {label: t('speedtest.transfer'), value: transferMB},
+            {label: t('speedtest.avg_upload'), value: sent + ' Mbps'},
+            {label: t('speedtest.avg_download'), value: recv + ' Mbps'},
+            {label: t('speedtest.sent_volume'), value: sentMB},
+            {label: t('speedtest.recv_volume'), value: recvMB},
             {label: t('speedtest.duration_label'), value: d.duration + 's'},
             {label: t('speedtest.protocol_label'), value: (d.protocol || 'tcp').toUpperCase()}
         ];
